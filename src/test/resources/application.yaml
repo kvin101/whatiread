@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:whatiread-test-${random.uuid};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    enabled: true
+    database-change-log-table: databasechangelog
+    database-change-log-lock-table: databasechangeloglock
+
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:1.0}
+
+whatiread:
+  rate-limit:
+    enabled: false
+  security:
+    jwt:
+      secret: test-secret-key-minimum-thirty-two-characters-long
+      access-ttl-minutes: 15
+      refresh-ttl-days: 7
+  registration:
+    enabled: true
+  cors:
+    allowed-origins: http://localhost:5173
+  google-books:
+    api-key:

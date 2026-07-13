@@ -1,0 +1,101 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-messaging
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: conversations
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_a_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_b_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: conversations
+            columnNames: user_a_id, user_b_id
+            constraintName: uk_conversations_users
+        - addForeignKeyConstraint:
+            baseTableName: conversations
+            baseColumnNames: user_a_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_conversations_user_a
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: conversations
+            baseColumnNames: user_b_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_conversations_user_b
+            onDelete: CASCADE
+        - createTable:
+            tableName: messages
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: conversation_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sender_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: body
+                  type: varchar(4000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sent_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: read_at
+                  type: timestamp with time zone
+        - addForeignKeyConstraint:
+            baseTableName: messages
+            baseColumnNames: conversation_id
+            referencedTableName: conversations
+            referencedColumnNames: id
+            constraintName: fk_messages_conversation
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: messages
+            baseColumnNames: sender_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_messages_sender
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_messages_conversation
+            tableName: messages
+            columns:
+              - column:
+                  name: conversation_id
+              - column:
+                  name: sent_at

@@ -1,0 +1,294 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "Dependencies",
+      "type": "dashboard",
+      "uid": "whatiread-dependencies"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 200,
+      "title": "System health",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"whatiread\"}[5m]))",
+          "legendFormat": "requests/s",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"whatiread\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP latency p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=\"whatiread\",area=\"heap\"}",
+          "legendFormat": "{{id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "JVM heap usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"whatiread\"}",
+          "legendFormat": "{{pool}} active",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_connections_pending{application=\"whatiread\"}",
+          "legendFormat": "{{pool}} waiting",
+          "refId": "B"
+        }
+      ],
+      "title": "Connection pool utilization",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "id": 201,
+      "title": "Product metrics",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 18 },
+      "id": 5,
+      "targets": [{ "expr": "users_registered_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Users registered",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 18 },
+      "id": 6,
+      "targets": [{ "expr": "logins_total{application=\"whatiread\",status=\"success\"}", "refId": "A" }],
+      "title": "Logins (success)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 18 },
+      "id": 7,
+      "targets": [{ "expr": "logins_total{application=\"whatiread\",status=\"failure\"}", "refId": "A" }],
+      "title": "Logins (failure)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 18 },
+      "id": 8,
+      "targets": [{ "expr": "messages_sent_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Messages sent",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 18 },
+      "id": 9,
+      "targets": [{ "expr": "books_added_to_library_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Books added",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 18 },
+      "id": 10,
+      "targets": [{ "expr": "shelves_created_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Shelves created",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 24 },
+      "id": 11,
+      "targets": [{ "expr": "friend_requests_sent_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Friend requests sent",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 24 },
+      "id": 12,
+      "targets": [{ "expr": "friend_requests_accepted_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Friend requests accepted",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 24 },
+      "id": 13,
+      "targets": [{ "expr": "friend_requests_declined_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Friend requests declined",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 24 },
+      "id": 14,
+      "targets": [{ "expr": "comments_created_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Comments created",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 24 },
+      "id": 15,
+      "targets": [{ "expr": "recommendations_created_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Recommendations sent",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 24 },
+      "id": 16,
+      "targets": [{ "expr": "recommendations_accepted_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Recommendations accepted",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 30 },
+      "id": 17,
+      "targets": [{ "expr": "books_imported_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Books imported",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 30 },
+      "id": 18,
+      "targets": [{ "expr": "imports_started_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Imports started",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 30 },
+      "id": 19,
+      "targets": [{ "expr": "imports_completed_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Imports completed",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 30 },
+      "id": 20,
+      "targets": [{ "expr": "imports_failed_total{application=\"whatiread\"}", "refId": "A" }],
+      "title": "Imports failed",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 30 },
+      "id": 21,
+      "targets": [{ "expr": "library_exports_total{application=\"whatiread\",format=\"csv\"}", "refId": "A" }],
+      "title": "CSV exports",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 30 },
+      "id": 22,
+      "targets": [{ "expr": "library_exports_total{application=\"whatiread\",format=\"json\"}", "refId": "A" }],
+      "title": "JSON exports",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "id": 202,
+      "title": "Application Logs",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 37 },
+      "id": 23,
+      "options": {
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{app=\"whatiread\"} | json",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["whatiread", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "WhatIRead Overview",
+  "uid": "whatiread-overview",
+  "version": 3
+}

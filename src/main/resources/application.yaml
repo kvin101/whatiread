@@ -1,0 +1,161 @@
+spring:
+  application:
+    name: whatiread
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/whatiread}
+    username: ${DATABASE_USERNAME:whatiread}
+    password: ${DATABASE_PASSWORD:whatiread}
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:20}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT:600000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  cache:
+    type: caffeine
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  cloud:
+    openfeign:
+      micrometer:
+        enabled: true
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  tracing:
+    enabled: true
+    # Export all spans (1.0); tail sampling runs in the OTel collector.
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:1.0}
+  observations:
+    annotations:
+      enabled: true
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: ${OTLP_METRICS_EXPORT_ENABLED:false}
+        url: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:http://localhost:4318/v1/metrics}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+
+jdbc:
+  opentelemetry:
+    enabled: true
+    spans:
+      enabled: true
+    analysis:
+      enabled: true
+      sanitize:
+        enabled: true
+
+whatiread:
+  observability:
+    enabled: ${OBSERVABILITY_ENABLED:true}
+  loki:
+    url: ${WHATIREAD_LOKI_URL:http://localhost:3100/loki/api/v1/push}
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      access-ttl-minutes: 15
+      refresh-ttl-days: 7
+  registration:
+    enabled: ${REGISTRATION_ENABLED:true}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  google-books:
+    api-key: ${GOOGLE_BOOKS_API_KEY:}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+  request-logging:
+    enabled: ${REQUEST_LOGGING_ENABLED:true}
+    include-query-string: ${REQUEST_LOGGING_QUERY:false}
+    exclude-paths:
+      - /actuator/health
+  outbox:
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+  datasource:
+    read:
+      url: ${DATABASE_READ_URL:}
+      username: ${DATABASE_READ_USERNAME:${DATABASE_USERNAME:whatiread}}
+      password: ${DATABASE_READ_PASSWORD:${DATABASE_PASSWORD:whatiread}}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      openLibrary:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+      catalogImport:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+  ratelimiter:
+    configs:
+      # Per-IP tiers (see RateLimitTierResolver). Tuned for ~10–50 concurrent users on self-hosted.
+      strict-auth:
+        limitForPeriod: 15
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+      strict-import:
+        limitForPeriod: 8
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+      search:
+        limitForPeriod: 45
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+      write:
+        limitForPeriod: 90
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+      read:
+        limitForPeriod: 250
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+      default:
+        limitForPeriod: 120
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0

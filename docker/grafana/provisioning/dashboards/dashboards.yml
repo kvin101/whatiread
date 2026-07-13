@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: WhatIRead
+    orgId: 1
+    folder: WhatIRead
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,36 @@
+spring:
+  cloud:
+    openfeign:
+      micrometer:
+        enabled: false
+
+management:
+  tracing:
+    enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  observations:
+    annotations:
+      enabled: false
+
+jdbc:
+  opentelemetry:
+    enabled: false
+    spans:
+      enabled: false
+    analysis:
+      enabled: false
+
+---
+spring.config.activate.on-profile: prod
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

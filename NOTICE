@@ -1,0 +1,14 @@
+WhatIRead
+Copyright (C) 2026 WhatIRead Contributors
+
+This product includes software developed by third parties:
+
+- Spring Boot (Apache License 2.0) — https://spring.io/projects/spring-boot
+- Spring Cloud OpenFeign (Apache License 2.0) — https://spring.io/projects/spring-cloud
+- SpringDoc OpenAPI (Apache License 2.0) — https://springdoc.org
+- PostgreSQL JDBC Driver (BSD-2-Clause) — https://jdbc.postgresql.org
+- H2 Database (EPL 1.0 / MPL 2.0) — https://h2database.com
+- Liquibase (Apache License 2.0) — https://www.liquibase.org
+- Resilience4j (Apache License 2.0) — https://resilience4j.readme.io
+
+See each dependency's license in the Maven artifact or project repository.

@@ -1,0 +1,71 @@
+package com.whatiread.config.observability;
+
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.tomcat.TomcatWebServer;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+@Configuration
+public class ResourcePoolMetricsBinder {
+
+    private final MeterRegistry meterRegistry;
+    private final ObjectProvider<WebServerApplicationContext> webServerApplicationContext;
+
+    public ResourcePoolMetricsBinder(
+            MeterRegistry meterRegistry,
+            @Qualifier("importTaskExecutor") ThreadPoolTaskExecutor importTaskExecutor,
+            ObjectProvider<WebServerApplicationContext> webServerApplicationContext
+    ) {
+        this.meterRegistry = meterRegistry;
+        this.webServerApplicationContext = webServerApplicationContext;
+        bindThreadPool(meterRegistry, importTaskExecutor, "import");
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    void bindHttpWorkerPool() {
+        webServerApplicationContext.ifAvailable(ctx -> bindTomcatThreadPool(meterRegistry, ctx));
+    }
+
+    private void bindThreadPool(MeterRegistry meterRegistry, ThreadPoolTaskExecutor executor, String poolName) {
+        Gauge.builder("thread.pool.size", executor, ThreadPoolTaskExecutor::getPoolSize)
+                .description("Thread pool current size")
+                .tag("pool", poolName)
+                .register(meterRegistry);
+        Gauge.builder("thread.pool.active", executor, ThreadPoolTaskExecutor::getActiveCount)
+                .description("Active threads in pool")
+                .tag("pool", poolName)
+                .register(meterRegistry);
+        Gauge.builder("thread.pool.queue.depth", executor, e -> e.getThreadPoolExecutor().getQueue().size())
+                .description("Queued tasks waiting for a thread")
+                .tag("pool", poolName)
+                .register(meterRegistry);
+    }
+
+    private void bindTomcatThreadPool(MeterRegistry meterRegistry, WebServerApplicationContext webServerApplicationContext) {
+        if (!(webServerApplicationContext.getWebServer() instanceof TomcatWebServer tomcatWebServer)) {
+            return;
+        }
+        var executor = tomcatWebServer.getTomcat().getConnector().getProtocolHandler().getExecutor();
+        if (!(executor instanceof org.apache.tomcat.util.threads.ThreadPoolExecutor tomcatExecutor)) {
+            return;
+        }
+        Gauge.builder("thread.pool.size", tomcatExecutor, org.apache.tomcat.util.threads.ThreadPoolExecutor::getPoolSize)
+                .description("Thread pool current size")
+                .tag("pool", "http-workers")
+                .register(meterRegistry);
+        Gauge.builder("thread.pool.active", tomcatExecutor, org.apache.tomcat.util.threads.ThreadPoolExecutor::getActiveCount)
+                .description("Active threads in pool")
+                .tag("pool", "http-workers")
+                .register(meterRegistry);
+        Gauge.builder("thread.pool.queue.depth", tomcatExecutor, e -> e.getQueue().size())
+                .description("Queued tasks waiting for a thread")
+                .tag("pool", "http-workers")
+                .register(meterRegistry);
+    }
+}

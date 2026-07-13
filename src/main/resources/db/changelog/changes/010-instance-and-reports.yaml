@@ -1,0 +1,86 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-reading-goals-year-column
+      author: whatiread
+      changes:
+        - renameColumn:
+            tableName: reading_goals
+            oldColumnName: year
+            newColumnName: goal_year
+            columnDataType: smallint
+
+  - changeSet:
+      id: 010-instance-settings
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: instance_settings
+            columns:
+              - column:
+                  name: setting_key
+                  type: varchar(100)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: setting_value
+                  type: varchar(2000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 010-comment-reports
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: comment_reports
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: reporter_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: comment_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reason
+                  type: varchar(500)
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: comment_reports
+            baseColumnNames: reporter_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_comment_reports_reporter
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: comment_reports
+            baseColumnNames: comment_id
+            referencedTableName: comments
+            referencedColumnNames: id
+            constraintName: fk_comment_reports_comment
+            onDelete: CASCADE
+        - createIndex:
+            tableName: comment_reports
+            indexName: idx_comment_reports_comment
+            columns:
+              - column:
+                  name: comment_id

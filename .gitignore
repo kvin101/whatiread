@@ -1,0 +1,65 @@
+# Compiled output
+target/
+build/
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Environment and local data
+.env
+.env.local
+data/
+
+# Maven wrapper jar (downloaded)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Frontend (Phase 3)
+frontend/node_modules/
+frontend/dist/
+
+# Cursor (local IDE/agent config)
+.cursor/
+
+# Root-level generated Spring Boot metadata (local compile)
+/META-INF/
+
+# Editor swap files
+*.swp
+*~
+
+# Static analysis (local JARs and diff tooling)
+static-analysis/
+src/test/**/*.jar
+
+# Root-level frontend/build outputs (if present)
+node_modules/
+dist/
+
+# Local docs and agent notes (not in repo)
+docs/
+documents/
+SECURITY_AUDIT.md
+soul.md
+.agent.md

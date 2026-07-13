@@ -1,0 +1,74 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  otlp/jaeger:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+
+processors:
+  filter/drop_actuator:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(attributes["url.path"], "^/actuator/(health|prometheus|info)")'
+  batch:
+  tail_sampling:
+    decision_wait: ${env:OTEL_TAIL_SAMPLING_DECISION_WAIT:-10s}
+    num_traces: 100000
+    expected_new_traces_per_sec: 1000
+    policies:
+      # Always keep spans with ERROR status.
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # Always keep HTTP 4xx/5xx responses.
+      - name: http-4xx-5xx
+        type: numeric_attribute
+        numeric_attribute:
+          key: http.status_code
+          min_value: 400
+          max_value: 599
+      # Always keep slow traces.
+      - name: slow-traces
+        type: latency
+        latency:
+          threshold_ms: ${env:OTEL_TAIL_SAMPLING_SLOW_MS:-2000}
+      # Higher sampling for auth, messaging, and import/export paths.
+      - name: critical-paths
+        type: and
+        and:
+          and_sub_policy:
+            - name: critical-route-match
+              type: string_attribute
+              string_attribute:
+                key: url.path
+                values:
+                  - /api/v1/auth
+                  - /api/v1/conversations
+                  - /api/v1/import
+                  - /api/v1/export
+                enabled_regex_matching: true
+            - name: critical-sample-rate
+              type: probabilistic
+              probabilistic:
+                sampling_percentage: ${env:OTEL_TAIL_SAMPLING_CRITICAL_PERCENT:-50}
+      # Probabilistic fallback for non-actuator traffic (actuator dropped upstream).
+      - name: probabilistic-fallback
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:OTEL_TAIL_SAMPLING_NORMAL_PERCENT:-5}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [filter/drop_actuator, tail_sampling, batch]
+      exporters: [otlp/jaeger]

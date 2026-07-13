@@ -1,0 +1,75 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-recommendations
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: recommendations
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: from_user_id
+                  type: uuid
+              - column:
+                  name: to_user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: book_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message
+                  type: varchar(500)
+              - column:
+                  name: source
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(20)
+                  defaultValue: PENDING
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: recommendations
+            baseColumnNames: from_user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_recommendations_from_user
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: recommendations
+            baseColumnNames: to_user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_recommendations_to_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: recommendations
+            baseColumnNames: book_id
+            referencedTableName: books
+            referencedColumnNames: id
+            constraintName: fk_recommendations_book
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_recommendations_to_user_status
+            tableName: recommendations
+            columns:
+              - column:
+                  name: to_user_id
+              - column:
+                  name: status

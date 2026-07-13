@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-user-token-version
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: token_version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false

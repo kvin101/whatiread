@@ -1,0 +1,466 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-users-profile
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: first_name
+                  type: varchar(100)
+              - column:
+                  name: last_name
+                  type: varchar(100)
+              - column:
+                  name: phone_number
+                  type: varchar(20)
+              - column:
+                  name: avatar_url
+                  type: varchar(2048)
+              - column:
+                  name: address_line1
+                  type: varchar(255)
+              - column:
+                  name: address_line2
+                  type: varchar(255)
+              - column:
+                  name: city
+                  type: varchar(100)
+              - column:
+                  name: state
+                  type: varchar(100)
+              - column:
+                  name: postal_code
+                  type: varchar(20)
+              - column:
+                  name: country
+                  type: varchar(100)
+              - column:
+                  name: is_writer
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: writer_bio
+                  type: clob
+        - sql:
+            sql: UPDATE users SET first_name = display_name WHERE first_name IS NULL AND display_name IS NOT NULL
+        - dropColumn:
+            tableName: users
+            columnName: display_name
+
+  - changeSet:
+      id: 003-books-audit-and-isbn
+      author: whatiread
+      changes:
+        - renameColumn:
+            tableName: books
+            oldColumnName: isbn13
+            newColumnName: isbn
+            columnDataType: varchar(13)
+        - modifyDataType:
+            tableName: books
+            columnName: isbn
+            newDataType: varchar(20)
+        - addColumn:
+            tableName: books
+            columns:
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+              - column:
+                  name: created_by
+                  type: uuid
+              - column:
+                  name: updated_by
+                  type: uuid
+              - column:
+                  name: average_rating
+                  type: decimal(3, 2)
+              - column:
+                  name: rating_count
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: UPDATE books SET updated_at = created_at WHERE updated_at IS NULL
+        - addNotNullConstraint:
+            tableName: books
+            columnName: updated_at
+            columnDataType: timestamp with time zone
+        - createIndex:
+            indexName: idx_books_isbn
+            tableName: books
+            columns:
+              - column:
+                  name: isbn
+        - dropIndex:
+            indexName: idx_books_isbn13
+            tableName: books
+        - addForeignKeyConstraint:
+            baseTableName: books
+            baseColumnNames: created_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_books_created_by
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: books
+            baseColumnNames: updated_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_books_updated_by
+            onDelete: SET NULL
+
+  - changeSet:
+      id: 003-user-book-notes
+      author: whatiread
+      changes:
+        - dropColumn:
+            tableName: user_books
+            columnName: note
+        - createTable:
+            tableName: user_book_notes
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_book_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: author_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: body
+                  type: clob
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: user_book_notes
+            baseColumnNames: user_book_id
+            referencedTableName: user_books
+            referencedColumnNames: id
+            constraintName: fk_user_book_notes_user_book
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: user_book_notes
+            baseColumnNames: author_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_user_book_notes_author
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_user_book_notes_user_book
+            tableName: user_book_notes
+            columns:
+              - column:
+                  name: user_book_id
+
+  - changeSet:
+      id: 003-shelves-audit
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: shelves
+            columns:
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+              - column:
+                  name: created_by
+                  type: uuid
+              - column:
+                  name: updated_by
+                  type: uuid
+        - sql:
+            sql: UPDATE shelves SET updated_at = created_at WHERE updated_at IS NULL
+        - addNotNullConstraint:
+            tableName: shelves
+            columnName: updated_at
+            columnDataType: timestamp with time zone
+        - addForeignKeyConstraint:
+            baseTableName: shelves
+            baseColumnNames: created_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_shelves_created_by
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: shelves
+            baseColumnNames: updated_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_shelves_updated_by
+            onDelete: SET NULL
+
+  - changeSet:
+      id: 003-shelf-members
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: shelf_members
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: shelf_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: invited_by
+                  type: uuid
+        - addUniqueConstraint:
+            tableName: shelf_members
+            columnNames: shelf_id, user_id
+            constraintName: uk_shelf_members_shelf_user
+        - addForeignKeyConstraint:
+            baseTableName: shelf_members
+            baseColumnNames: shelf_id
+            referencedTableName: shelves
+            referencedColumnNames: id
+            constraintName: fk_shelf_members_shelf
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: shelf_members
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_shelf_members_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: shelf_members
+            baseColumnNames: invited_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_shelf_members_invited_by
+            onDelete: SET NULL
+
+  - changeSet:
+      id: 003-shelf-books-controls
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: shelf_books
+            columns:
+              - column:
+                  name: visibility
+                  type: varchar(20)
+              - column:
+                  name: added_by
+                  type: uuid
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+        - sql:
+            sql: UPDATE shelf_books SET created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE created_at IS NULL
+        - addNotNullConstraint:
+            tableName: shelf_books
+            columnName: created_at
+            columnDataType: timestamp with time zone
+        - addNotNullConstraint:
+            tableName: shelf_books
+            columnName: updated_at
+            columnDataType: timestamp with time zone
+        - addForeignKeyConstraint:
+            baseTableName: shelf_books
+            baseColumnNames: added_by
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_shelf_books_added_by
+            onDelete: SET NULL
+
+  - changeSet:
+      id: 003-friends
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: friend_requests
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: requester_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: addressee_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: friend_requests
+            columnNames: requester_id, addressee_id
+            constraintName: uk_friend_requests_pair
+        - addForeignKeyConstraint:
+            baseTableName: friend_requests
+            baseColumnNames: requester_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_friend_requests_requester
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: friend_requests
+            baseColumnNames: addressee_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_friend_requests_addressee
+            onDelete: CASCADE
+        - createTable:
+            tableName: friendships
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: friend_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: friendships
+            columnNames: user_id, friend_id
+            constraintName: pk_friendships
+        - addForeignKeyConstraint:
+            baseTableName: friendships
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_friendships_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: friendships
+            baseColumnNames: friend_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_friendships_friend
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_friendships_friend
+            tableName: friendships
+            columns:
+              - column:
+                  name: friend_id
+
+  - changeSet:
+      id: 003-postgres-reading-percent-fn
+      author: whatiread
+      dbms: postgresql
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE OR REPLACE FUNCTION calc_reading_percent(p_pages integer, p_total integer)
+              RETURNS smallint
+              LANGUAGE plpgsql
+              IMMUTABLE
+              AS $$
+              BEGIN
+                IF p_total IS NULL OR p_total <= 0 OR p_pages IS NULL THEN
+                  RETURN NULL;
+                END IF;
+                RETURN LEAST(100, GREATEST(0, ROUND(p_pages * 100.0 / p_total)))::smallint;
+              END;
+              $$;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE OR REPLACE FUNCTION user_books_sync_progress_percent()
+              RETURNS trigger
+              LANGUAGE plpgsql
+              AS $$
+              DECLARE
+                total integer;
+              BEGIN
+                IF NEW.status = 'READ' THEN
+                  NEW.progress_percent := 100;
+                  RETURN NEW;
+                END IF;
+                SELECT page_count INTO total FROM books WHERE id = NEW.book_id;
+                NEW.progress_percent := calc_reading_percent(NEW.progress_pages, total);
+                RETURN NEW;
+              END;
+              $$;
+        - sql:
+            splitStatements: false
+            sql: |
+              DROP TRIGGER IF EXISTS trg_user_books_progress_percent ON user_books;
+              CREATE TRIGGER trg_user_books_progress_percent
+              BEFORE INSERT OR UPDATE OF progress_pages, book_id, status ON user_books
+              FOR EACH ROW
+              EXECUTE FUNCTION user_books_sync_progress_percent();

@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-user-blocks-blocker-index
+      author: whatiread
+      changes:
+        - createIndex:
+            indexName: idx_user_blocks_blocker_id
+            tableName: user_blocks
+            columns:
+              - column:
+                  name: blocker_id
+
+  - changeSet:
+      id: 013-idempotency-keys-expires-index
+      author: whatiread
+      changes:
+        - createIndex:
+            indexName: idx_idempotency_keys_expires_at
+            tableName: idempotency_keys
+            columns:
+              - column:
+                  name: expires_at

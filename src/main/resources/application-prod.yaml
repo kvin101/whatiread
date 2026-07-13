@@ -1,0 +1,86 @@
+spring:
+  jpa:
+    show-sql: false
+  datasource:
+    password: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required in production}
+
+whatiread:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:?JWT_SECRET is required in production (min 32 characters)}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:?CORS_ORIGINS is required in production (comma-separated origins, no wildcards)}
+  rate-limit:
+    enabled: true
+  request-logging:
+    enabled: false
+  registration:
+    enabled: ${REGISTRATION_ENABLED:false}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+server:
+  forward-headers-strategy: framework
+  shutdown: graceful
+  tomcat:
+    remoteip:
+      remote-ip-header: x-forwarded-for
+      protocol-header: x-forwarded-proto
+      # Trust only private-network reverse proxies (e.g. nginx on Docker bridge).
+      internal-proxies: 10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3}
+
+logging:
+  level:
+    root: INFO
+    com.whatiread: INFO
+    com.whatiread.http.access: WARN
+
+resilience4j:
+  ratelimiter:
+    configs:
+      # Stricter production defaults for internet-facing self-hosts.
+      strict-auth:
+        limitForPeriod: 10
+      strict-import:
+        limitForPeriod: 5
+      search:
+        limitForPeriod: 30
+      write:
+        limitForPeriod: 60
+      read:
+        limitForPeriod: 200
+      default:
+        limitForPeriod: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+    info:
+      enabled: false
+  tracing:
+    enabled: ${whatiread.observability.enabled:true}
+    # Export all spans; tail sampling runs in the OTel collector.
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:1.0}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://otel-collector:4318/v1/traces}
+
+jdbc:
+  opentelemetry:
+    enabled: ${whatiread.observability.enabled:true}
+    spans:
+      enabled: ${whatiread.observability.enabled:true}
+    analysis:
+      enabled: false

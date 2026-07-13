@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-shelf-visibility
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: shelves
+            columns:
+              - column:
+                  name: visibility
+                  type: varchar(20)
+                  defaultValue: PRIVATE
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_shelves_user_visibility
+            tableName: shelves
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: visibility

@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-shelf-description-icon
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: shelves
+            columns:
+              - column:
+                  name: description
+                  type: varchar(500)
+              - column:
+                  name: icon
+                  type: varchar(32)

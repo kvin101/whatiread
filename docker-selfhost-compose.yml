@@ -1,0 +1,111 @@
+# WhatIRead self-hosting — behind your own reverse proxy (Traefik, Caddy, nginx on host)
+#
+# Edit environment values below (CHANGE_ME_* placeholders), then:
+#   docker compose -f docker-selfhost-compose.yml up -d
+#
+# Expected reverse-proxy routes (point at host ports bound below):
+#   /     -> http://127.0.0.1:8080   (whatiread-web — static UI)
+#   /api  -> http://127.0.0.1:8081   (whatiread-api)
+#   /ws   -> http://127.0.0.1:8081   (whatiread-api — WebSocket)
+#
+# The whatiread-web image still serves static files only for /. Route /api and /ws at the
+# edge; do not rely on the in-container nginx proxy when using this layout.
+
+services:
+  postgres:
+    container_name: whatiread-postgres
+    image: postgres:16.8-alpine
+    user: postgres
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: whatiread
+      POSTGRES_USER: whatiread
+      POSTGRES_PASSWORD: CHANGE_ME_postgres_password_use_a_strong_value
+    volumes:
+      - whatiread-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whatiread -d whatiread"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    networks:
+      - whatiread-network
+
+  whatiread-api:
+    container_name: whatiread-api
+    image: vinayk101/whatiread-api:latest
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/whatiread
+      DATABASE_USERNAME: whatiread
+      DATABASE_PASSWORD: CHANGE_ME_postgres_password_use_a_strong_value
+      JWT_SECRET: CHANGE_ME_jwt_secret_minimum_32_characters_required
+      REGISTRATION_ENABLED: "false"
+      CORS_ORIGINS: https://books.example.com
+      GOOGLE_BOOKS_API_KEY: ""
+      RATE_LIMIT_ENABLED: "true"
+      OBSERVABILITY_ENABLED: "false"
+      JAVA_TOOL_OPTIONS: "-XX:+UseZGC -XX:+ZGenerational -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/liveness || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    mem_limit: 768m
+    cpus: 2.0
+    restart: unless-stopped
+    networks:
+      whatiread-network:
+        aliases:
+          - api
+
+  whatiread-web:
+    container_name: whatiread-web
+    image: vinayk101/whatiread-web:latest
+    user: nginx
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp/nginx:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /var/run:uid=101,gid=101
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      whatiread-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+    cpus: 0.5
+    restart: unless-stopped
+    networks:
+      - whatiread-network
+
+networks:
+  whatiread-network:
+    name: whatiread-network
+
+volumes:
+  whatiread-postgres-data:
+    name: whatiread-postgres-data

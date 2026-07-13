@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    # File-backed H2 so dev data survives restarts (stored under ./data/, gitignored).
+    # Do not use DATABASE_TO_LOWER here — it breaks Liquibase changelog table creation on H2.
+    url: jdbc:h2:file:./data/whatiread-dev;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+whatiread:
+  security:
+    jwt:
+      secret: dev-only-change-me-use-at-least-32-characters
+
+logging:
+  level:
+    com.whatiread: DEBUG
+    com.whatiread.http.access: INFO

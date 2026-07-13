@@ -1,0 +1,33 @@
+# Git and IDE
+.git
+.gitignore
+.cursor
+*.md
+!README.md
+
+# Frontend (built separately)
+frontend/
+node_modules/
+
+# Build outputs
+target/
+**/dist/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# Docker runtime config (mounted at compose time)
+docker/
+
+# Tests and CI
+**/*Test.java
+src/test/
+
+# Observability / dev tooling
+*.iml
+.idea/
+.vscode/
+SECURITY_AUDIT.md
+**/.DS_Store

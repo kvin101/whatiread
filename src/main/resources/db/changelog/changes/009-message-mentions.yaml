@@ -1,0 +1,47 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-message-mentions
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: message_mentions
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: message_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mention_type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: label
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: message_mentions
+            baseColumnNames: message_id
+            referencedTableName: messages
+            referencedColumnNames: id
+            constraintName: fk_message_mentions_message
+            onDelete: CASCADE
+        - createIndex:
+            tableName: message_mentions
+            indexName: idx_message_mentions_message
+            columns:
+              - column:
+                  name: message_id

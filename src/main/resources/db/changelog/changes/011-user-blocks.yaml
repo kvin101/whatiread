@@ -1,0 +1,41 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-user-blocks
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: user_blocks
+            columns:
+              - column:
+                  name: blocker_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: blocked_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: user_blocks
+            columnNames: blocker_id, blocked_id
+            constraintName: pk_user_blocks
+        - addForeignKeyConstraint:
+            baseTableName: user_blocks
+            baseColumnNames: blocker_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_user_blocks_blocker
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: user_blocks
+            baseColumnNames: blocked_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_user_blocks_blocked
+            onDelete: CASCADE
