@@ -30,6 +30,7 @@ class SetupIntegrationTest extends AbstractApiIntegrationTest {
         String body = """
                 {
                   "email": "admin@example.com",
+                  "username": "adminuser",
                   "password": "%s",
                   "firstName": "Admin",
                   "registrationEnabled": false

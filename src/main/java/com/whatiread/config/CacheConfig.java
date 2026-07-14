@@ -18,11 +18,12 @@ public class CacheConfig {
     public static final String BOOK_BY_ID = "books-by-id";
     public static final String PUBLIC_SHELF = "public-shelves";
     public static final String OPEN_LIBRARY_SEARCH = "open-library-search";
+    public static final String OPEN_LIBRARY_PREVIEW = "open-library-preview";
 
     @Bean
     CacheManager cacheManager(DependencyMetrics dependencyMetrics) {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager(
-                BOOK_BY_ID, PUBLIC_SHELF, OPEN_LIBRARY_SEARCH);
+                BOOK_BY_ID, PUBLIC_SHELF, OPEN_LIBRARY_SEARCH, OPEN_LIBRARY_PREVIEW);
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(5_000)
                 .expireAfterWrite(15, TimeUnit.MINUTES)

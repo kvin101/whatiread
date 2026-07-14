@@ -24,6 +24,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) {
         User user = userRepository.findByEmailIgnoreCase(username)
+                .or(() -> userRepository.findByUsernameIgnoreCase(username))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return authenticatedUserFactory.create(user);
     }

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 public record UpdateProfileRequest(
         @Size(max = 100) String firstName,
         @Size(max = 100) String lastName,
+        @Size(min = 3, max = 30) String username,
         @Size(max = 20) String phoneNumber,
         @Size(max = 2048) String avatarUrl,
         @Size(max = 255) String addressLine1,

@@ -1,12 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { Clock, Sparkles } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { friendsApi } from '../api/friends'
 import { libraryApi } from '../api/library'
 import { recommendationsApi } from '../api/recommendations'
 import { shelvesApi } from '../api/shelves'
-import { ApiError } from '../api/client'
-import type { Book, RecommendationTargetType, Shelf } from '../api/types'
+import type { Book, Page, RecommendationTargetType, Shelf, UserBook } from '../api/types'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -18,6 +17,7 @@ import { BookCover } from '../components/books/BookCover'
 import { copy } from '../lib/copy'
 import { formatAuthors } from '../lib/utils'
 import { QUERY_KEYS } from '../lib/constants'
+import { getApiErrorMessage } from '../lib/api'
 
 const LIBRARY_PAGE_SIZE = 50
 
@@ -27,8 +27,6 @@ export function RecommendationsPage() {
   const [recommendOpen, setRecommendOpen] = useState(false)
   const [bookSearch, setBookSearch] = useState('')
   const [debouncedBookSearch, setDebouncedBookSearch] = useState('')
-  const [bookPage, setBookPage] = useState(0)
-  const [libraryBooks, setLibraryBooks] = useState<Book[]>([])
   const [shelves, setShelves] = useState<Shelf[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -41,16 +39,9 @@ export function RecommendationsPage() {
     if (!recommendOpen) {
       setBookSearch('')
       setDebouncedBookSearch('')
-      setBookPage(0)
-      setLibraryBooks([])
       setError(null)
     }
   }, [recommendOpen])
-
-  useEffect(() => {
-    setBookPage(0)
-    setLibraryBooks([])
-  }, [debouncedBookSearch])
 
   const { data: inbox = [], isLoading: inboxLoading } = useQuery({
     queryKey: QUERY_KEYS.recommendations.inbox,
@@ -76,14 +67,21 @@ export function RecommendationsPage() {
     queryFn: friendsApi.list,
   })
 
-  const { data: libraryPage, isFetching: libraryLoading } = useQuery({
-    queryKey: [...QUERY_KEYS.library.forRec, debouncedBookSearch, bookPage],
-    queryFn: () =>
+  const {
+    data: libraryPages,
+    isFetching: libraryLoading,
+    hasNextPage: libraryHasMore,
+    fetchNextPage: loadMoreBooks,
+  } = useInfiniteQuery<Page<UserBook>, Error, InfiniteData<Page<UserBook>, number>, string[], number>({
+    queryKey: [...QUERY_KEYS.library.forRec, debouncedBookSearch],
+    queryFn: ({ pageParam = 0 }) =>
       libraryApi.list({
         q: debouncedBookSearch || undefined,
         size: LIBRARY_PAGE_SIZE,
-        page: bookPage,
+        page: pageParam,
       }),
+    initialPageParam: 0,
+    getNextPageParam: (page) => (page.last ? undefined : page.number + 1),
     enabled: recommendOpen,
   })
 
@@ -97,18 +95,16 @@ export function RecommendationsPage() {
     if (myShelves.length > 0) setShelves(myShelves)
   }, [myShelves])
 
-  useEffect(() => {
-    if (!libraryPage) return
-    const books = libraryPage.content.map((ub) => ub.book)
-    if (bookPage === 0) {
-      setLibraryBooks(books)
-      return
-    }
-    setLibraryBooks((prev) => {
-      const ids = new Set(prev.map((b) => b.id))
-      return [...prev, ...books.filter((b) => !ids.has(b.id))]
+  const libraryBooks = useMemo(() => {
+    const books = libraryPages?.pages.flatMap((page: Page<UserBook>) =>
+      page.content.map((entry: UserBook) => entry.book),
+    ) ?? []
+    const byId = new Map<string, Book>()
+    books.forEach((book: Book) => {
+      byId.set(book.id, book)
     })
-  }, [libraryPage, bookPage])
+    return [...byId.values()]
+  }, [libraryPages])
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.recommendations.all })
@@ -151,7 +147,7 @@ export function RecommendationsPage() {
       setError(null)
       invalidate()
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : 'Rec failed to launch.'),
+    onError: (e) => setError(getApiErrorMessage(e, 'Rec failed to launch.')),
   })
 
   const handleDelete = async (recId: string, variant: 'inbox' | 'sent') => {
@@ -271,8 +267,8 @@ export function RecommendationsPage() {
         friends={friends}
         libraryBooks={libraryBooks}
         libraryLoading={libraryLoading}
-        libraryHasMore={libraryPage ? !libraryPage.last : false}
-        onLoadMoreBooks={() => setBookPage((p) => p + 1)}
+        libraryHasMore={Boolean(libraryHasMore)}
+        onLoadMoreBooks={() => loadMoreBooks()}
         bookSearch={bookSearch}
         onBookSearchChange={setBookSearch}
         shelves={shelves}

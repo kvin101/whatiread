@@ -16,6 +16,7 @@ import { Input, Label } from '../ui/Input'
 import { Textarea } from '../ui/Textarea'
 import { BookCover } from './BookCover'
 import { StarRating } from './StarRating'
+import { getApiErrorMessage } from '../../lib/api'
 
 const STATUSES: ReadingStatus[] = ['TO_READ', 'READING', 'READ', 'DNF']
 
@@ -96,7 +97,7 @@ export function BookDetailDrawer({
       onUpdated?.()
       setError(null)
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : 'Update failed'),
+    onError: (e) => setError(getApiErrorMessage(e, 'Update failed')),
   })
 
   const rateWithoutLibraryMutation = useMutation({
@@ -120,7 +121,7 @@ export function BookDetailDrawer({
         refetchMyByBook()
         return
       }
-      setError(e instanceof ApiError ? e.message : 'Could not save rating')
+      setError(getApiErrorMessage(e, 'Could not save rating'))
     },
   })
 
@@ -151,7 +152,7 @@ export function BookDetailDrawer({
         refetchMyByBook()
         return
       }
-      setError(e instanceof ApiError ? e.message : 'Could not add to your library')
+      setError(getApiErrorMessage(e, 'Could not add to your library'))
     },
   })
 

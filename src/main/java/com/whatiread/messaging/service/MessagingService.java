@@ -3,7 +3,7 @@ package com.whatiread.messaging.service;
 import com.whatiread.messaging.api.ConversationDto;
 import com.whatiread.messaging.api.MessageDto;
 import com.whatiread.messaging.api.MessageMentionDto;
-import java.time.Instant;
+import com.whatiread.shared.api.CursorPage;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,7 +25,7 @@ public interface MessagingService {
 
     List<ConversationDto> listGroupConversations(UUID userId);
 
-    List<MessageDto> listMessages(UUID userId, UUID conversationId, Instant before, int limit);
+    CursorPage<MessageDto> listMessages(UUID userId, UUID conversationId, String cursor, int limit);
 
     MessageDto sendMessage(UUID senderId, UUID conversationId, String body);
 

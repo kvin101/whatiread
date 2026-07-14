@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { shelvesApi } from '../api/shelves'
 import type { ShelfVisibility } from '../api/types'
-import { ApiError } from '../api/client'
 import { IconPicker } from '../components/shelves/IconPicker'
 import { ShelfCard } from '../components/shelves/ShelfCard'
 import { Button } from '../components/ui/Button'
@@ -15,12 +14,13 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { Input, Label } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { Textarea } from '../components/ui/Textarea'
-import { VISIBILITY_HINTS, VISIBILITY_LABELS } from '../lib/constants'
+import { VISIBILITY_LABELS } from '../lib/constants'
 import { copy } from '../lib/copy'
-import { cn } from '../lib/utils'
 import { LayoutGrid } from 'lucide-react'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { VisibilityPicker } from '../components/shelves/VisibilityPicker'
+import { getApiErrorMessage } from '../lib/api'
 
 type VisibilityFilter = 'ALL' | ShelfVisibility
 
@@ -70,7 +70,7 @@ export function ShelvesPage() {
       setError(null)
       navigate(`${APP_ROUTES.shelf(created.id)}?addBooks=1`)
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : 'Shelf refused to be born.'),
+    onError: (e) => setError(getApiErrorMessage(e, 'Shelf refused to be born.')),
   })
 
   return (
@@ -158,25 +158,7 @@ export function ShelvesPage() {
             </div>
           </div>
           <div>
-            <Label>Who can see this?</Label>
-            <div className="mt-2 flex flex-col gap-2">
-              {(['SECRET', 'PRIVATE', 'FRIENDS', 'PUBLIC'] as ShelfVisibility[]).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVisibility(v)}
-                  className={cn(
-                    'rounded-xl border px-4 py-3 text-left transition-colors',
-                    visibility === v
-                      ? 'border-accent bg-accent/5'
-                      : 'border-border hover:border-ink/20',
-                  )}
-                >
-                  <span className="text-sm font-medium text-ink">{VISIBILITY_LABELS[v]}</span>
-                  <p className="mt-0.5 text-xs text-ink-muted">{VISIBILITY_HINTS[v]}</p>
-                </button>
-              ))}
-            </div>
+            <VisibilityPicker value={visibility} onChange={setVisibility} />
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
           <Button

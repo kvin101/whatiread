@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquare, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { commentsApi } from '../../api/comments'
-import { ApiError } from '../../api/client'
 import type { CommentTargetType } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { QUERY_KEYS } from '../../lib/constants'
+import { getApiErrorMessage } from '../../lib/api'
 import { BookLoader } from '../ui/BookLoader'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
@@ -41,7 +41,7 @@ export function CommentThread({
       setBody('')
       setError(null)
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to post'),
+    onError: (e) => setError(getApiErrorMessage(e, 'Failed to post')),
   })
 
   const updateMutation = useMutation({

@@ -10,6 +10,7 @@ import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.domain.ShelfEvent;
 import com.whatiread.shelf.domain.ShelfEventType;
 import com.whatiread.shelf.repository.ShelfEventRepository;
+import com.whatiread.shared.util.DisplayNames;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -28,45 +29,39 @@ public class ShelfEventService {
             ShelfEventType.BOOK_ADDED,
             ShelfEventType.BOOK_REMOVED
     );
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, String>> MAP_TYPE = new TypeReference<>() {
     };
     private final ShelfEventRepository shelfEventRepository;
     private final UserLookupService userLookupService;
+    private final ObjectMapper objectMapper;
 
-    public ShelfEventService(ShelfEventRepository shelfEventRepository, UserLookupService userLookupService) {
+    public ShelfEventService(
+            ShelfEventRepository shelfEventRepository,
+            UserLookupService userLookupService,
+            ObjectMapper objectMapper
+    ) {
         this.shelfEventRepository = shelfEventRepository;
         this.userLookupService = userLookupService;
+        this.objectMapper = objectMapper;
     }
 
-    private static String formatDisplayName(User user) {
-        String name = user.getDisplayName();
-        if (name == null || name.isBlank()) {
-            name = user.getFirstName();
-            if (user.getLastName() != null && !user.getLastName().isBlank()) {
-                name = name != null && !name.isBlank() ? name + " " + user.getLastName() : user.getLastName();
-            }
-        }
-        return name == null || name.isBlank() ? "Reader" : name;
-    }
-
-    private static String serializePayload(Map<String, String> payload) {
+    private String serializePayload(Map<String, String> payload) {
         if (payload == null || payload.isEmpty()) {
             return null;
         }
         try {
-            return MAPPER.writeValueAsString(payload);
+            return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {
             throw new IllegalArgumentException("Invalid event payload", ex);
         }
     }
 
-    private static Map<String, String> deserializePayload(String json) {
+    private Map<String, String> deserializePayload(String json) {
         if (json == null || json.isBlank()) {
             return Collections.emptyMap();
         }
         try {
-            return MAPPER.readValue(json, MAP_TYPE);
+            return objectMapper.readValue(json, MAP_TYPE);
         } catch (JsonProcessingException ex) {
             return Collections.emptyMap();
         }
@@ -96,7 +91,7 @@ public class ShelfEventService {
                 event.getId(),
                 event.getEventType(),
                 actor.getId(),
-                formatDisplayName(actor),
+                DisplayNames.format(actor),
                 deserializePayload(event.getPayload()),
                 event.getCreatedAt()
         );

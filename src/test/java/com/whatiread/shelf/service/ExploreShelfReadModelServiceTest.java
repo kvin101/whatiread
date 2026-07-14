@@ -73,7 +73,7 @@ class ExploreShelfReadModelServiceTest {
     @BeforeEach
     void setUp() {
         shelfId = UUID.randomUUID();
-        User owner = new User("owner@example.com", "hash", "Owner", "User");
+        User owner = new User("owner@example.com", "owner", "hash", "Owner", "User");
         setId(owner, UUID.randomUUID());
         shelf = new Shelf(owner, READING, "reading");
         setId(shelf, shelfId);

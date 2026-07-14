@@ -14,6 +14,7 @@ export const setupApi = {
 
   createAdmin(body: {
     email: string
+    username: string
     password: string
     firstName: string
     lastName?: string

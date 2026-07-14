@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.whatiread.catalog.api.BookPreviewDto;
 import com.whatiread.catalog.api.BookSearchResultDto;
 import com.whatiread.catalog.domain.Book;
 import com.whatiread.catalog.domain.BookSource;
@@ -17,6 +18,7 @@ import com.whatiread.config.CacheConfig;
 import com.whatiread.config.observability.DependencyMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -110,6 +112,25 @@ class BookMetadataServiceTest {
         assertEquals(List.of(WILLIAM_GIBSON), book.getAuthors());
         assertEquals(BookSource.OPEN_LIBRARY, book.getSource());
         assertEquals("9780441569595", book.getIsbn());
+    }
+
+    @Test
+    void getExternalPreviewMapsWorkDetails() {
+        when(openLibraryClient.getWork("OL893479W"))
+                .thenReturn(Map.of(
+                        "title", DUNE,
+                        "description", Map.of("value", "Epic desert planet saga."),
+                        "first_publish_date", "1965",
+                        "subjects", List.of("Science fiction", "Fantasy")
+                ));
+
+        BookPreviewDto preview = bookMetadataService.getExternalPreview("/works/OL893479W");
+
+        assertEquals(DUNE, preview.title());
+        assertEquals("Epic desert planet saga.", preview.description());
+        assertEquals(1965, preview.publishYear());
+        assertEquals(List.of("Science fiction", "Fantasy"), preview.subjects());
+        assertEquals(BookSource.OPEN_LIBRARY, preview.source());
     }
 
     @Test

@@ -32,6 +32,7 @@ import com.whatiread.shared.outbox.OutboxEventPublisher;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.domain.ShelfVisibility;
+import com.whatiread.shelf.repository.ShelfBookRepository;
 import com.whatiread.shelf.service.ShelfService;
 import com.whatiread.social.service.FriendshipService;
 import java.lang.reflect.Field;
@@ -74,6 +75,8 @@ class RecommendationServiceImplTest {
     private FriendshipService friendshipService;
     @Mock
     private ShelfService shelfService;
+    @Mock
+    private ShelfBookRepository shelfBookRepository;
     @Mock
     private OutboxEventPublisher outboxEventPublisher;
     @Mock
@@ -140,8 +143,8 @@ class RecommendationServiceImplTest {
         toUserId = UUID.randomUUID();
         bookId = UUID.randomUUID();
         shelfId = UUID.randomUUID();
-        fromUser = new User("from@example.com", HASH, "From", USER);
-        toUser = new User("to@example.com", HASH, "To", USER);
+        fromUser = new User("from@example.com", "fromuser", HASH, "From", USER);
+        toUser = new User("to@example.com", "touser", HASH, "To", USER);
         book = new Book();
         book.setTitle(DUNE);
         shelf = new Shelf(fromUser, "Favorites", "favorites");

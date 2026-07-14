@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { ApiError } from '../api/client'
 import { setupApi } from '../api/setup'
 import { useAuth } from '../auth/AuthContext'
+import { UsernameAvailabilityHint } from '../components/ui/UsernameAvailabilityHint'
+import { useUsernameAvailability } from '../hooks/useUsernameAvailability'
 import { Button } from '../components/ui/Button'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
 import { Input, Label } from '../components/ui/Input'
@@ -16,12 +18,14 @@ export function SetupPage() {
   const { completeAuth } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [allowRegistration, setAllowRegistration] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const usernameCheck = useUsernameAvailability(username)
 
   const { data: setup, isLoading } = useQuery({
     queryKey: QUERY_KEYS.setup.required,
@@ -34,6 +38,7 @@ export function SetupPage() {
     mutationFn: () =>
       setupApi.createAdmin({
         email,
+        username,
         password,
         firstName,
         lastName: lastName || undefined,
@@ -89,6 +94,18 @@ export function SetupPage() {
             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
           <div>
+            <Label>Username</Label>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
+            />
+            <UsernameAvailabilityHint value={username} check={usernameCheck} />
+          </div>
+          <div>
             <Label>Email</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
@@ -114,7 +131,7 @@ export function SetupPage() {
             <p className="text-sm text-ink-muted">{copy.auth.setup.registrationHint}</p>
           )}
           {error && <p className="text-sm text-danger">{error}</p>}
-          <Button type="submit" className="w-full comic-cta-starburst" disabled={mutation.isPending}>
+          <Button type="submit" className="w-full comic-cta-starburst" disabled={mutation.isPending || usernameCheck.data?.available === false}>
             {mutation.isPending ? 'Opening the doors…' : copy.auth.setup.submit}
           </Button>
         </form>

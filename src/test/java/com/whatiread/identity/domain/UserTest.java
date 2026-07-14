@@ -22,21 +22,21 @@ class UserTest {
 
     @Test
     void displayNameFallsBackToEmail() {
-        User user = new User(READER_EXAMPLE_COM, HASH, null, null);
+        User user = new User(READER_EXAMPLE_COM, "reader", HASH, null, null);
 
         assertThat(user.getDisplayName()).isEqualTo(READER_EXAMPLE_COM);
     }
 
     @Test
     void displayNameCombinesFirstAndLastName() {
-        User user = new User(READER_EXAMPLE_COM, HASH, JANE, "Doe");
+        User user = new User(READER_EXAMPLE_COM, "reader", HASH, JANE, "Doe");
 
         assertThat(user.getDisplayName()).isEqualTo("Jane Doe");
     }
 
     @Test
     void gettersAndSettersRoundTripProfileFields() {
-        User user = new User(READER_EXAMPLE_COM, HASH, JANE, "Doe");
+        User user = new User(READER_EXAMPLE_COM, "reader", HASH, JANE, "Doe");
 
         user.setPasswordHash(NEW_HASH);
         user.setFirstName(JANET);
@@ -70,14 +70,14 @@ class UserTest {
 
     @Test
     void acceptRecommendationsDefaultsTrue() {
-        User user = new User(READER_EXAMPLE_COM, HASH, JANE, "Doe");
+        User user = new User(READER_EXAMPLE_COM, "reader", HASH, JANE, "Doe");
 
         assertThat(user.isAcceptRecommendations()).isTrue();
     }
 
     @Test
     void acceptRecommendationsCanBeToggled() {
-        User user = new User(READER_EXAMPLE_COM, HASH, JANE, "Doe");
+        User user = new User(READER_EXAMPLE_COM, "reader", HASH, JANE, "Doe");
 
         user.setAcceptRecommendations(false);
 

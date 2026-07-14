@@ -126,4 +126,11 @@ class BookApiIntegrationTest extends AbstractApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(JSON_PATH_CONTENT).isArray());
     }
+
+    @Test
+    void bookSuggestIsPublic() throws Exception {
+        mockMvc.perform(get(ApiPaths.BOOKS_SUGGEST).param("q", "dune"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
 }

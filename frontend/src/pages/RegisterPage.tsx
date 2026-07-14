@@ -3,20 +3,23 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { setupApi } from '../api/setup'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import { Button } from '../components/ui/Button'
 import { Input, Label } from '../components/ui/Input'
 import { copy } from '../lib/copy'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { UsernameAvailabilityHint } from '../components/ui/UsernameAvailabilityHint'
+import { useUsernameAvailability } from '../hooks/useUsernameAvailability'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
+import { getApiErrorMessage } from '../lib/api'
 
 export function RegisterPage() {
   const { register, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({
     email: '',
+    username: '',
     password: '',
     firstName: '',
     lastName: '',
@@ -24,6 +27,7 @@ export function RegisterPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const usernameCheck = useUsernameAvailability(form.username)
 
   const { data: setup, isLoading: setupLoading } = useQuery({
     queryKey: QUERY_KEYS.setup.required,
@@ -54,6 +58,7 @@ export function RegisterPage() {
     try {
       await register({
         email: form.email,
+        username: form.username,
         password: form.password,
         firstName: form.firstName,
         lastName: form.lastName || undefined,
@@ -61,7 +66,7 @@ export function RegisterPage() {
       })
       navigate(APP_ROUTES.library, { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Registration failed — try a stronger password.')
+      setError(getApiErrorMessage(err, 'Registration failed — try a stronger password.'))
     } finally {
       setLoading(false)
     }
@@ -103,6 +108,21 @@ export function RegisterPage() {
           />
         </div>
         <div>
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            required
+            minLength={3}
+            maxLength={30}
+            pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
+            title="3–30 characters; start with a letter; letters, numbers, underscores only"
+            autoComplete="username"
+            value={form.username}
+            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+          />
+          <UsernameAvailabilityHint value={form.username} check={usernameCheck} />
+        </div>
+        <div>
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -124,7 +144,7 @@ export function RegisterPage() {
           />
         </div>
         {error && <p className="text-sm text-danger">{error}</p>}
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+        <Button type="submit" className="w-full" size="lg" disabled={loading || usernameCheck.data?.available === false}>
           {loading ? copy.auth.register.submitting : copy.auth.register.submit}
         </Button>
       </form>

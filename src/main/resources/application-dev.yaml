@@ -15,6 +15,10 @@ whatiread:
   security:
     jwt:
       secret: dev-only-change-me-use-at-least-32-characters
+  meilisearch:
+    enabled: true
+    host: http://localhost:7700
+    load-seed-on-startup: true
 
 logging:
   level:

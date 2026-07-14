@@ -33,3 +33,5 @@ databaseChangeLog:
       file: db/changelog/changes/015-recommendation-enhancements.yaml
   - include:
       file: db/changelog/changes/015-shelf-share-links.yaml
+  - include:
+      file: db/changelog/changes/016-user-username.yaml

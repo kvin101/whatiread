@@ -26,21 +26,24 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void registerCreatesUserAndReturnsTokens() throws Exception {
         String email = uniqueEmail();
+        String username = uniqueUsername();
 
         mockMvc.perform(post(ApiPaths.AUTH + REGISTER_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "email": "%s",
+                                  "username": "%s",
                                   "password": "%s",
                                   "firstName": "Ada",
                                   "lastName": "Lovelace"
                                 }
-                                """.formatted(email, DEFAULT_PASSWORD)))
+                                """.formatted(email, username, DEFAULT_PASSWORD)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath(JSON_PATH_ACCESS_TOKEN).isNotEmpty())
                 .andExpect(jsonPath(JSON_PATH_REFRESH_TOKEN).isNotEmpty())
                 .andExpect(jsonPath(JSON_PATH_USER_EMAIL).value(email))
+                .andExpect(jsonPath("$.user.username").value(username))
                 .andExpect(jsonPath(JSON_PATH_USER_FIRST_NAME).value("Ada"))
                 .andExpect(jsonPath(JSON_PATH_USER_LAST_NAME).value("Lovelace"));
     }
@@ -55,11 +58,12 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
                         .content("""
                                 {
                                   "email": "%s",
+                                  "username": "%s",
                                   "password": "%s",
                                   "firstName": "Second",
                                   "lastName": "User"
                                 }
-                                """.formatted(email, DEFAULT_PASSWORD)))
+                                """.formatted(email, uniqueUsername(), DEFAULT_PASSWORD)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath(JSON_PATH_DETAIL).value("Email already registered"));
     }
@@ -67,7 +71,7 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void loginReturnsTokensForValidCredentials() throws Exception {
         String email = uniqueEmail();
-        registerUser(email, DEFAULT_PASSWORD, "Alan", "Turing");
+        AuthSession session = registerUser(email, DEFAULT_PASSWORD, "Alan", "Turing");
 
         mockMvc.perform(post(ApiPaths.AUTH + LOGIN_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -80,6 +84,17 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(JSON_PATH_ACCESS_TOKEN).isNotEmpty())
                 .andExpect(jsonPath(JSON_PATH_REFRESH_TOKEN).isNotEmpty())
+                .andExpect(jsonPath(JSON_PATH_USER_EMAIL).value(email));
+
+        mockMvc.perform(post(ApiPaths.AUTH + LOGIN_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(session.username(), DEFAULT_PASSWORD)))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath(JSON_PATH_USER_EMAIL).value(email));
     }
 
@@ -155,5 +170,26 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
     void meRequiresAuthentication() throws Exception {
         mockMvc.perform(get(ApiPaths.ME))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void usernameAvailabilityUsesBloomFilterFastPath() throws Exception {
+        String username = uniqueUsername();
+        registerUser(uniqueEmail(), username, DEFAULT_PASSWORD, "Check", "User");
+
+        mockMvc.perform(get(ApiPaths.AUTH + "/username/available").param("username", username))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(username))
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.available").value(false))
+                .andExpect(jsonPath("$.message").value("Username already taken"));
+
+        String fresh = uniqueUsername();
+        mockMvc.perform(get(ApiPaths.AUTH + "/username/available").param("username", fresh))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(fresh))
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.available").value(true))
+                .andExpect(jsonPath("$.message").doesNotExist());
     }
 }

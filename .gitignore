@@ -9,7 +9,10 @@ build/
 # Environment and local data
 .env
 .env.local
-data/
+data/*
+!data/seed/
+!data/seed/**
+data/seed/books_1.Best_Books_Ever.csv
 
 # Maven wrapper jar (downloaded)
 .mvn/wrapper/maven-wrapper.jar

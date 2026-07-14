@@ -7,12 +7,11 @@ import com.whatiread.messaging.api.CreateGroupConversationRequest;
 import com.whatiread.messaging.api.MessageDto;
 import com.whatiread.messaging.api.UpdateGroupConversationRequest;
 import com.whatiread.messaging.service.MessagingService;
+import com.whatiread.shared.api.CursorPage;
 import com.whatiread.shared.web.ApiPaths;
 import jakarta.validation.Valid;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -100,13 +99,13 @@ public class ConversationController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    List<MessageDto> listMessages(
+    CursorPage<MessageDto> listMessages(
             @CurrentUserId UUID userId,
             @PathVariable UUID conversationId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant before,
+            @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "50") int limit
     ) {
-        return messagingService.listMessages(userId, conversationId, before, limit);
+        return messagingService.listMessages(userId, conversationId, cursor, limit);
     }
 
     @PostMapping("/{conversationId}/read")

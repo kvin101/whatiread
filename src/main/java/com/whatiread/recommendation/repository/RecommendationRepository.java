@@ -5,12 +5,15 @@ import com.whatiread.recommendation.domain.RecommendationStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecommendationRepository extends JpaRepository<Recommendation, UUID> {
 
+    @EntityGraph(attributePaths = {"fromUser", "toUser", "book", "shelf"})
     List<Recommendation> findByToUser_IdAndStatusOrderByCreatedAtDesc(UUID toUserId, RecommendationStatus status);
 
+    @EntityGraph(attributePaths = {"fromUser", "toUser", "book", "shelf"})
     List<Recommendation> findByFromUser_IdAndStatusOrderByCreatedAtDesc(UUID fromUserId, RecommendationStatus status);
 
     Optional<Recommendation> findByIdAndToUser_Id(UUID id, UUID toUserId);

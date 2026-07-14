@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
@@ -41,6 +43,8 @@ class ShelfEventServiceTest {
     private ShelfEventRepository shelfEventRepository;
     @Mock
     private UserLookupService userLookupService;
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private ShelfEventService shelfEventService;
@@ -86,7 +90,7 @@ class ShelfEventServiceTest {
     void setUp() {
         userId = UUID.randomUUID();
         shelfId = UUID.randomUUID();
-        owner = new User("owner@example.com", HASH, "Owner", "User");
+        owner = new User("owner@example.com", "owner", HASH, "Owner", "User");
         setId(owner, userId);
         shelf = new Shelf(owner, SHELF_NAME_READING, "reading");
         setId(shelf, shelfId);
@@ -113,7 +117,7 @@ class ShelfEventServiceTest {
 
     @Test
     void listFormatsActorNameFromFirstAndLast() {
-        User actor = new User(ACTOR_EXAMPLE_COM, HASH, ADA, LOVELACE);
+        User actor = new User(ACTOR_EXAMPLE_COM, "actor", HASH, ADA, LOVELACE);
         setId(actor, UUID.randomUUID());
         ShelfEvent event = new ShelfEvent(shelf, actor, ShelfEventType.SHELF_UPDATED, null);
         setId(event, UUID.randomUUID());
@@ -144,7 +148,7 @@ class ShelfEventServiceTest {
 
     @Test
     void listUsesDisplayNameWhenPresent() {
-        User actor = new User(ACTOR_EXAMPLE_COM, HASH, ADA, LOVELACE);
+        User actor = new User(ACTOR_EXAMPLE_COM, "actor", HASH, ADA, LOVELACE);
         actor.setFirstName(ADA);
         actor.setLastName(LOVELACE);
         setId(actor, UUID.randomUUID());
@@ -159,7 +163,7 @@ class ShelfEventServiceTest {
 
     @Test
     void listFallsBackToReaderWhenNoNameAvailable() {
-        User actor = new User(ACTOR_EXAMPLE_COM, HASH, "  ", null);
+        User actor = new User(ACTOR_EXAMPLE_COM, "actor", HASH, "  ", null);
         actor.setFirstName("  ");
         actor.setLastName(null);
         setId(actor, UUID.randomUUID());
@@ -174,7 +178,7 @@ class ShelfEventServiceTest {
 
     @Test
     void listUsesFirstNameWhenDisplayNameBlank() {
-        User actor = new User(ACTOR_EXAMPLE_COM, HASH, "", null);
+        User actor = new User(ACTOR_EXAMPLE_COM, "actor", HASH, "", null);
         actor.setFirstName(ADA);
         actor.setLastName(null);
         setId(actor, UUID.randomUUID());

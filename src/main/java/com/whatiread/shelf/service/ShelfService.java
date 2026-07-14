@@ -19,6 +19,7 @@ import com.whatiread.shelf.api.UpdateShelfBookRequest;
 import com.whatiread.shelf.api.UpdateShelfMemberRequest;
 import com.whatiread.shelf.api.UpdateShelfRequest;
 import com.whatiread.shelf.domain.Shelf;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -63,6 +64,8 @@ public interface ShelfService {
     ShelfDto cloneForRecommendationRecipient(UUID recipientId, UUID recommenderId, UUID shelfId);
 
     ShelfDto getRecommendationPreview(UUID shelfId);
+
+    Map<UUID, Integer> countBooksByShelfIds(Collection<UUID> shelfIds);
 
     ShelfDto cloneFromShare(UUID userId, UUID token, CloneShelfRequest request);
 

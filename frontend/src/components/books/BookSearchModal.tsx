@@ -1,15 +1,18 @@
 import { useMutation } from '@tanstack/react-query'
-import { Loader2, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import { booksApi } from '../../api/books'
 import { libraryApi } from '../../api/library'
-import { ApiError } from '../../api/client'
 import type { BookSearchResult } from '../../api/types'
-import { formatAuthors } from '../../lib/utils'
+import { getApiErrorMessage } from '../../lib/api'
+import { useBookSearch } from '../../hooks/useBookSearch'
+import { BookSearchField } from './BookSearchField'
+import {
+  bookSearchResultKey,
+  BookSearchAddButton,
+  BookSearchResultsList,
+} from './BookSearchResultsList'
 import { Button } from '../ui/Button'
-import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
-import { BookCover } from './BookCover'
 
 export function BookSearchModal({
   open,
@@ -20,10 +23,9 @@ export function BookSearchModal({
   onClose: () => void
   onAdded: () => void
 }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<BookSearchResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set())
+  const { query, setQuery, results, searching, error, setError, search, reset } =
+    useBookSearch('Search failed')
 
   const addMutation = useMutation({
     mutationFn: async (book: BookSearchResult) => {
@@ -42,70 +44,51 @@ export function BookSearchModal({
       }
       return libraryApi.add({ bookId })
     },
-    onSuccess: () => {
+    onSuccess: (_data, book) => {
+      setAddedKeys((prev) => new Set(prev).add(bookSearchResultKey(book)))
       onAdded()
-      onClose()
+      setError(null)
     },
     onError: (e) => {
-      setError(e instanceof ApiError ? e.message : 'Could not add book')
+      setError(getApiErrorMessage(e, 'Could not add book'))
     },
   })
 
-  const search = async () => {
-    if (!query.trim()) return
-    setSearching(true)
-    setError(null)
-    try {
-      const page = await booksApi.search(query.trim())
-      setResults(page.content)
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Search failed')
-      setResults([])
-    } finally {
-      setSearching(false)
-    }
+  const handleClose = () => {
+    reset()
+    setAddedKeys(new Set())
+    onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add a book" wide>
-      <div className="flex gap-2">
-        <Input
-          placeholder="Search by title, author, ISBN…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && search()}
-        />
-        <Button onClick={search} disabled={searching}>
-          {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          Search
+    <Modal open={open} onClose={handleClose} title="Add a book" wide>
+      <BookSearchField
+        query={query}
+        onQueryChange={setQuery}
+        onSearch={search}
+        searching={searching}
+        enabled={open}
+        autoFocus
+      />
+      {error && <p className="mt-4 text-base text-danger">{error}</p>}
+      <BookSearchResultsList
+        results={results}
+        searching={searching}
+        query={query}
+        emptyMessage="No Open Library results. Try another query or press Search."
+        renderAction={(book) => (
+          <BookSearchAddButton
+            onAdd={() => addMutation.mutate(book)}
+            pending={addMutation.isPending}
+            added={addedKeys.has(bookSearchResultKey(book))}
+          />
+        )}
+      />
+      <div className="mt-6 flex justify-end">
+        <Button variant="secondary" onClick={handleClose}>
+          Done
         </Button>
       </div>
-      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
-      <ul className="mt-6 space-y-3 max-h-80 overflow-y-auto">
-        {results.map((book) => (
-          <li
-            key={book.id ?? `${book.title}-${book.externalId}`}
-            className="flex items-center gap-3 rounded-xl border border-border p-3"
-          >
-            <BookCover title={book.title} coverUrl={book.coverUrl} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-ink line-clamp-1">{book.title}</p>
-              <p className="text-sm text-ink-muted">{formatAuthors(book.authors)}</p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => addMutation.mutate(book)}
-              disabled={addMutation.isPending}
-            >
-              <Plus className="h-4 w-4" />
-              Add
-            </Button>
-          </li>
-        ))}
-        {!searching && results.length === 0 && query && (
-          <p className="text-center text-sm text-ink-muted py-8">No results. Try another query.</p>
-        )}
-      </ul>
     </Modal>
   )
 }

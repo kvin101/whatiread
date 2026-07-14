@@ -22,7 +22,8 @@ import { APP_ROUTES } from '../../api/paths'
 import { useAuth } from '../../auth/AuthContext'
 import { copy } from '../../lib/copy'
 import { QUERY_KEYS } from '../../lib/constants'
-import { cn, displayName, initials } from '../../lib/utils'
+import { cn, displayName } from '../../lib/utils'
+import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/Button'
 import { triggerComicBurst, useComicBurst } from '../ui/ComicBurst'
 import { PageTransition } from './PageTransition'
@@ -149,7 +150,10 @@ export function AppShell() {
     <div className="flex min-h-screen min-h-[100dvh]">
       <aside className="hidden w-72 shrink-0 flex-col glass-strong border-r border-white/8 lg:flex halftone-overlay halftone-subtle">
         <div className="border-b border-white/8 px-6 py-7">
-          <div className="flex items-center gap-2.5">
+          <Link
+            to={APP_ROUTES.library}
+            className="flex items-center gap-2.5 rounded-xl transition-opacity hover:opacity-90"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-dim border border-accent/20">
               <Zap className="h-5 w-5 text-accent" fill="currentColor" />
             </div>
@@ -157,7 +161,7 @@ export function AppShell() {
               <span className="font-display text-xl font-bold tracking-tight text-ink manga-title">{copy.brand.name}</span>
               <p className="text-[11px] text-ink-muted leading-tight mt-0.5">{copy.brand.tagline}</p>
             </div>
-          </div>
+          </Link>
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
@@ -177,9 +181,7 @@ export function AppShell() {
             to={APP_ROUTES.userProfile(user?.id ?? '')}
             className="flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/5 card-hover"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sage/15 text-sm font-bold text-sage ring-2 ring-sage/20">
-              {initials(name)}
-            </div>
+            <UserAvatar name={name} avatarUrl={user?.avatarUrl} size="sm" className="h-10 w-10 text-sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink">{name}</p>
               <p className="truncate text-xs text-ink-muted">{copy.nav.profile}</p>
@@ -194,10 +196,10 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <header className="flex items-center justify-between glass border-b border-accent/10 px-4 py-3 lg:hidden">
-          <div className="flex items-center gap-2">
+          <Link to={APP_ROUTES.library} className="flex items-center gap-2 hover:opacity-90">
             <Zap className="h-5 w-5 text-accent" fill="currentColor" />
             <span className="font-display text-lg font-bold tracking-tight manga-title">{copy.brand.name}</span>
-          </div>
+          </Link>
           <Button variant="ghost" size="sm" onClick={() => logout()} aria-label={copy.nav.signOut}>
             <LogOut className="h-4 w-4" />
           </Button>

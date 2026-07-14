@@ -35,7 +35,7 @@ class ShelfBookQueryPortImplTest {
     private UUID userBookId;
 
     private static User user(UUID id) {
-        User user = new User("u@example.com", "hash", "Ada", "Lovelace");
+        User user = new User("u@example.com", "ada_user", "hash", "Ada", "Lovelace");
         setId(user, id);
         return user;
     }

@@ -13,7 +13,8 @@ public record WhatIReadProperties(
         Cors cors,
         GoogleBooks googleBooks,
         RateLimit rateLimit,
-        RequestLogging requestLogging
+        RequestLogging requestLogging,
+        Avatars avatars
 ) {
 
     public WhatIReadProperties {
@@ -22,6 +23,9 @@ public record WhatIReadProperties(
         }
         if (requestLogging == null) {
             requestLogging = new RequestLogging(true, true, List.of(WebPaths.ACTUATOR_HEALTH));
+        }
+        if (avatars == null) {
+            avatars = new Avatars("./data/avatars");
         }
     }
 
@@ -58,5 +62,8 @@ public record WhatIReadProperties(
                 excludePaths = List.of(WebPaths.ACTUATOR_HEALTH);
             }
         }
+    }
+
+    public record Avatars(String directory) {
     }
 }

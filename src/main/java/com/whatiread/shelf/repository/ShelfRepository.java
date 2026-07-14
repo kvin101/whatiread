@@ -17,6 +17,9 @@ public interface ShelfRepository extends JpaRepository<Shelf, UUID> {
 
     List<Shelf> findByOwner_IdAndVisibilityOrderBySortOrderAsc(UUID ownerId, ShelfVisibility visibility);
 
+    @Query("SELECT COALESCE(MAX(s.sortOrder), -1) FROM Shelf s WHERE s.owner.id = :ownerId")
+    int maxSortOrderByOwnerId(@Param("ownerId") UUID ownerId);
+
     Optional<Shelf> findByOwner_IdAndSlug(UUID ownerId, String slug);
 
     Optional<Shelf> findByOwner_IdAndNameIgnoreCase(UUID ownerId, String name);

@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 import { API_PATHS } from './paths'
-import type { Conversation, Message } from './types'
+import type { Conversation, CursorPage, Message } from './types'
 
 export const conversationsApi = {
   list() {
@@ -52,12 +52,12 @@ export const conversationsApi = {
     return apiFetch<void>(API_PATHS.conversations.leave(conversationId), { method: 'POST' })
   },
 
-  messages(conversationId: string, params?: { before?: string; limit?: number }) {
+  messages(conversationId: string, params?: { cursor?: string; limit?: number }) {
     const q = new URLSearchParams()
-    if (params?.before) q.set('before', params.before)
+    if (params?.cursor) q.set('cursor', params.cursor)
     if (params?.limit != null) q.set('limit', String(params.limit))
     const qs = q.toString()
-    return apiFetch<Message[]>(
+    return apiFetch<CursorPage<Message>>(
       `${API_PATHS.conversations.messages(conversationId)}${qs ? `?${qs}` : ''}`,
     )
   },

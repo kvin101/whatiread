@@ -4,13 +4,17 @@ import com.whatiread.identity.api.AuthResponse;
 import com.whatiread.identity.api.LoginRequest;
 import com.whatiread.identity.api.RefreshRequest;
 import com.whatiread.identity.api.RegisterRequest;
+import com.whatiread.identity.api.UsernameAvailabilityResponse;
 import com.whatiread.identity.service.AuthService;
+import com.whatiread.identity.service.UsernameService;
 import com.whatiread.shared.web.ApiPaths;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,9 +23,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final UsernameService usernameService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UsernameService usernameService) {
         this.authService = authService;
+        this.usernameService = usernameService;
+    }
+
+    @GetMapping("/username/available")
+    UsernameAvailabilityResponse usernameAvailable(@RequestParam("username") String username) {
+        return usernameService.checkAvailability(username, null);
     }
 
     @PostMapping("/register")

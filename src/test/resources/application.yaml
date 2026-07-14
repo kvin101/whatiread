@@ -31,3 +31,6 @@ whatiread:
     allowed-origins: http://localhost:5173
   google-books:
     api-key:
+  meilisearch:
+    enabled: false
+    load-seed-on-startup: false

@@ -100,6 +100,15 @@ whatiread:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
   google-books:
     api-key: ${GOOGLE_BOOKS_API_KEY:}
+  meilisearch:
+    enabled: ${MEILISEARCH_ENABLED:true}
+    host: ${MEILISEARCH_HOST:http://localhost:7700}
+    api-key: ${MEILISEARCH_API_KEY:}
+    index: ${MEILISEARCH_INDEX:book-suggest}
+    user-index: ${MEILISEARCH_USER_INDEX:user-suggest}
+    seed-resource: ${MEILISEARCH_SEED_RESOURCE:classpath:book-suggest/book-suggest.json}
+    load-seed-on-startup: ${MEILISEARCH_LOAD_SEED_ON_STARTUP:true}
+    load-users-on-startup: ${MEILISEARCH_LOAD_USERS_ON_STARTUP:true}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
   request-logging:
@@ -107,6 +116,8 @@ whatiread:
     include-query-string: ${REQUEST_LOGGING_QUERY:false}
     exclude-paths:
       - /actuator/health
+  avatars:
+    directory: ${WHATIREAD_AVATARS_DIRECTORY:./data/avatars}
   outbox:
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
   datasource:

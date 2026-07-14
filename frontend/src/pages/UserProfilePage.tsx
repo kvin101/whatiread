@@ -8,7 +8,8 @@ import { ShelfCard } from '../components/shelves/ShelfCard'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter, BookSkeletonGrid } from '../components/ui/BookLoader'
-import { displayName, initials } from '../lib/utils'
+import { displayName } from '../lib/utils'
+import { UserAvatar } from '../components/ui/UserAvatar'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { copy } from '../lib/copy'
 import { useAuth } from '../auth/AuthContext'
@@ -93,15 +94,12 @@ export function UserProfilePage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4 rounded-2xl p-6 flex-1 manga-panel halftone-overlay">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-sage/15 text-xl font-semibold text-sage">
-            {profile?.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
-            ) : (
-              initials(name)
-            )}
-          </div>
+          <UserAvatar name={name} avatarUrl={profile?.avatarUrl} size="lg" className="rounded-2xl" />
           <div>
             <h1 className="font-display text-3xl font-bold text-ink">{name}</h1>
+            {profile?.username && (
+              <p className="mt-1 text-sm text-ink-muted">@{profile.username}</p>
+            )}
             {profile?.writer && profile.writerBio && (
               <p className="mt-2 text-sm text-ink-muted max-w-lg">{profile.writerBio}</p>
             )}

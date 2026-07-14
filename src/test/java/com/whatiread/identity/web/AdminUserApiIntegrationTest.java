@@ -40,12 +40,13 @@ class AdminUserApiIntegrationTest extends AbstractApiIntegrationTest {
                         .content("""
                                 {
                                   "email": "%s",
+                                  "username": "%s",
                                   "password": "password123",
                                   "firstName": "Invited",
                                   "lastName": "Reader",
                                   "role": "USER"
                                 }
-                                """.formatted(newUserEmail)))
+                                """.formatted(newUserEmail, uniqueUsername())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value(newUserEmail))
                 .andExpect(jsonPath("$.enabled").value(true))
@@ -141,11 +142,12 @@ class AdminUserApiIntegrationTest extends AbstractApiIntegrationTest {
                         .content("""
                                 {
                                   "email": "%s",
+                                  "username": "%s",
                                   "password": "password123",
                                   "firstName": "Nope",
                                   "role": "USER"
                                 }
-                                """.formatted(uniqueEmail())))
+                                """.formatted(uniqueEmail(), uniqueUsername())))
                 .andExpect(status().isForbidden());
     }
 
@@ -164,12 +166,13 @@ class AdminUserApiIntegrationTest extends AbstractApiIntegrationTest {
                         .content("""
                                 {
                                   "email": "%s",
+                                  "username": "%s",
                                   "password": "password123",
                                   "firstName": "Session",
                                   "lastName": "Victim",
                                   "role": "USER"
                                 }
-                                """.formatted(newUserEmail)))
+                                """.formatted(newUserEmail, uniqueUsername())))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()

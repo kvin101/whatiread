@@ -10,6 +10,8 @@ import com.whatiread.identity.api.AuthResponse;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.repository.UserRepository;
 import com.whatiread.identity.service.TokenIssuer;
+import com.whatiread.identity.service.UsernameService;
+import com.whatiread.identity.suggest.UserSearchIndexService;
 import com.whatiread.instance.api.SetupAdminRequest;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.support.TestConstants;
@@ -42,6 +44,12 @@ class SetupServiceImplTest {
     @Mock
     private InstanceSettingsService instanceSettingsService;
 
+    @Mock
+    private UsernameService usernameService;
+
+    @Mock
+    private UserSearchIndexService userSearchIndexService;
+
     @InjectMocks
     private SetupServiceImpl setupService;
 
@@ -51,6 +59,7 @@ class SetupServiceImplTest {
     void setUp() {
         request = new SetupAdminRequest(
                 " Admin@Example.COM ",
+                "adminuser",
                 TEST_PASSWORD,
                 " Admin ",
                 " User ",
@@ -82,6 +91,7 @@ class SetupServiceImplTest {
         AuthResponse tokens = new AuthResponse("access", "refresh", null);
         when(instanceSettingsService.isSetupRequired()).thenReturn(true);
         when(userRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
+        when(usernameService.normalizeAndValidate("adminuser")).thenReturn("adminuser");
         when(passwordEncoder.encode(TEST_PASSWORD)).thenReturn(ENCODED);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenIssuer.issueTokens(any(User.class))).thenReturn(tokens);
@@ -106,9 +116,10 @@ class SetupServiceImplTest {
     @Test
     void createAdminDefaultsRegistrationToDisabled() {
         SetupAdminRequest noRegistration = new SetupAdminRequest(
-                ADMIN_EXAMPLE_COM, TEST_PASSWORD, ADMIN, null, null);
+                ADMIN_EXAMPLE_COM, "adminuser", TEST_PASSWORD, ADMIN, null, null);
         when(instanceSettingsService.isSetupRequired()).thenReturn(true);
         when(userRepository.existsByEmailIgnoreCase(noRegistration.email())).thenReturn(false);
+        when(usernameService.normalizeAndValidate("adminuser")).thenReturn("adminuser");
         when(passwordEncoder.encode(any())).thenReturn(ENCODED);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenIssuer.issueTokens(any(User.class))).thenReturn(

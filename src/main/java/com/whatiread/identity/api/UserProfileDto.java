@@ -4,6 +4,7 @@ import java.util.UUID;
 
 public record UserProfileDto(
         UUID id,
+        String username,
         String displayName,
         String firstName,
         String lastName,

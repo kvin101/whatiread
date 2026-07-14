@@ -65,7 +65,7 @@ class ShelfAccessServiceTest {
     void setUp() {
         ownerId = UUID.randomUUID();
         viewerId = UUID.randomUUID();
-        User owner = new User("owner@example.com", HASH, "Owner", USER);
+        User owner = new User("owner@example.com", "owner", HASH, "Owner", USER);
         setId(owner, ownerId);
         shelf = new Shelf(owner, "Reading", "reading");
         setId(shelf, UUID.randomUUID());
@@ -82,7 +82,7 @@ class ShelfAccessServiceTest {
     @Test
     void privateShelfRequiresMembership() {
         shelf.setVisibility(ShelfVisibility.PRIVATE);
-        User viewer = new User("viewer@example.com", HASH, "Viewer", USER);
+        User viewer = new User("viewer@example.com", "viewer", HASH, "Viewer", USER);
         setId(viewer, viewerId);
         ShelfMember member = new ShelfMember(shelf, viewer, ShelfMemberRole.EDITOR, ownerId);
 
@@ -129,7 +129,7 @@ class ShelfAccessServiceTest {
 
     @Test
     void requireManageMembersRejectsEditorRole() {
-        User editor = new User(EDITOR_EXAMPLE_COM, HASH, EDITOR, USER);
+        User editor = new User(EDITOR_EXAMPLE_COM, "editor", HASH, EDITOR, USER);
         setId(editor, viewerId);
         ShelfMember member = new ShelfMember(shelf, editor, ShelfMemberRole.EDITOR, ownerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
@@ -141,7 +141,7 @@ class ShelfAccessServiceTest {
 
     @Test
     void requireOwnerRejectsNonOwnerMember() {
-        User admin = new User("admin@example.com", HASH, "Admin", USER);
+        User admin = new User("admin@example.com", "adminuser", HASH, "Admin", USER);
         setId(admin, viewerId);
         ShelfMember member = new ShelfMember(shelf, admin, ShelfMemberRole.ADMIN, ownerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
@@ -178,7 +178,7 @@ class ShelfAccessServiceTest {
 
     @Test
     void requireManageShelfRejectsEditor() {
-        User editor = new User(EDITOR_EXAMPLE_COM, HASH, EDITOR, USER);
+        User editor = new User(EDITOR_EXAMPLE_COM, "editor", HASH, EDITOR, USER);
         setId(editor, viewerId);
         ShelfMember member = new ShelfMember(shelf, editor, ShelfMemberRole.EDITOR, ownerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
@@ -201,7 +201,7 @@ class ShelfAccessServiceTest {
     void activityScopeForOwnerAndAdminIsAll() {
         assertThat(shelfAccessService.activityScopeFor(shelf, ownerId)).isEqualTo(ShelfActivityScope.ALL);
 
-        User admin = new User("admin@example.com", HASH, "Admin", USER);
+        User admin = new User("admin@example.com", "adminuser", HASH, "Admin", USER);
         setId(admin, viewerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
                 .thenReturn(Optional.of(new ShelfMember(shelf, admin, ShelfMemberRole.ADMIN, ownerId)));
@@ -211,7 +211,7 @@ class ShelfAccessServiceTest {
 
     @Test
     void activityScopeForEditorIsBookChangesOnly() {
-        User editor = new User(EDITOR_EXAMPLE_COM, HASH, EDITOR, USER);
+        User editor = new User(EDITOR_EXAMPLE_COM, "editor", HASH, EDITOR, USER);
         setId(editor, viewerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
                 .thenReturn(Optional.of(new ShelfMember(shelf, editor, ShelfMemberRole.EDITOR, ownerId)));
@@ -221,7 +221,7 @@ class ShelfAccessServiceTest {
 
     @Test
     void activityScopeForViewerAndStrangersIsNone() {
-        User viewer = new User("viewer@example.com", HASH, "Viewer", USER);
+        User viewer = new User("viewer@example.com", "viewer", HASH, "Viewer", USER);
         setId(viewer, viewerId);
         when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelf.getId(), viewerId))
                 .thenReturn(Optional.of(new ShelfMember(shelf, viewer, ShelfMemberRole.VIEWER, ownerId)));

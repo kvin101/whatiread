@@ -8,6 +8,7 @@ export const QUERY_KEYS = {
   setup: { required: ['setup', 'required'] as const },
   admin: {
     users: (page: number, q: string) => ['admin', 'users', page, q] as const,
+    suggest: (query: string) => ['admin', 'users', 'suggest', query] as const,
   },
   goals: (year: number) => ['goals', year] as const,
   library: {
@@ -50,6 +51,16 @@ export const QUERY_KEYS = {
   profile: {
     detail: (userId: string) => ['profile', userId] as const,
     shelves: (userId: string) => ['profile', userId, 'shelves'] as const,
+  },
+  usernameAvailability: (username: string, currentUser?: boolean) =>
+    ['username', 'available', username, currentUser ?? false] as const,
+  books: {
+    suggest: (query: string) => ['books', 'suggest', query] as const,
+    preview: (bookId?: string, externalId?: string) =>
+      ['books', 'preview', bookId ?? '', externalId ?? ''] as const,
+  },
+  users: {
+    suggest: (scope: string, query: string) => ['users', 'suggest', scope, query] as const,
   },
   comments: (targetType: string, targetId: string) => ['comments', targetType, targetId] as const,
 } as const

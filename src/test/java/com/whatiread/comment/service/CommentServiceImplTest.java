@@ -82,7 +82,7 @@ class CommentServiceImplTest {
         authorId = UUID.randomUUID();
         targetId = UUID.randomUUID();
         commentId = UUID.randomUUID();
-        author = new User("author@example.com", PASSWORD_HASH, AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME);
+        author = new User("author@example.com", "author", PASSWORD_HASH, AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME);
         setId(author, authorId);
         comment = new Comment(author, CommentTargetType.BOOK, targetId, COMMENT_BODY);
         setId(comment, commentId);

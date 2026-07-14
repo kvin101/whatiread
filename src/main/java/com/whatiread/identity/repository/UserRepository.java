@@ -3,6 +3,7 @@ package com.whatiread.identity.repository;
 import com.whatiread.identity.domain.User;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmailIgnoreCase(String email);
 
+    Optional<User> findByUsernameIgnoreCase(String username);
+
+    boolean existsByUsernameIgnoreCase(String username);
+
+    boolean existsByUsernameIgnoreCaseAndIdNot(String username, UUID userId);
+
     Optional<User> findFirstByOrderByCreatedAtAsc();
 
     Page<User> findAllByOrderByCreatedAtDesc(Pageable pageable);
@@ -22,9 +29,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("""
             SELECT u FROM User u
             WHERE LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%'))
+                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(COALESCE(u.firstName, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(COALESCE(u.lastName, '')) LIKE LOWER(CONCAT('%', :q, '%'))
             ORDER BY u.createdAt DESC
             """)
     Page<User> searchByEmailOrName(@Param("q") String query, Pageable pageable);
+
+    @Query("SELECT u.username FROM User u")
+    List<String> findAllUsernames();
 }

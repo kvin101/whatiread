@@ -38,6 +38,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         boolean blockedByViewer = !self && blockService.hasBlocked(viewerId, profileUserId);
         return new UserProfileDto(
                 user.getId(),
+                user.getUsername(),
                 user.getDisplayName(),
                 user.getFirstName(),
                 user.getLastName(),

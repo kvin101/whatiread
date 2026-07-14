@@ -1,7 +1,7 @@
 package com.whatiread.messaging.websocket;
 
 import com.whatiread.config.WhatIReadProperties;
-import java.util.Arrays;
+import com.whatiread.config.CorsOrigins;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -33,7 +33,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/queue", "/topic");
+        registry.enableSimpleBroker("/queue");
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
     }
@@ -47,9 +47,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         String origins = properties.cors() != null
                 ? properties.cors().allowedOrigins()
                 : "http://localhost:5173";
-        return Arrays.stream(origins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .toArray(String[]::new);
+        return CorsOrigins.split(origins).toArray(String[]::new);
     }
 }

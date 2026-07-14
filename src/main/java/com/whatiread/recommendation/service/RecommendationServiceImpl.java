@@ -24,6 +24,7 @@ import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.shared.outbox.OutboxEventPublisher;
+import com.whatiread.shared.util.DisplayNames;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.service.ShelfService;
@@ -31,6 +32,7 @@ import com.whatiread.social.service.FriendshipService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -236,7 +238,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private RecommendationDto persistAndNotify(Recommendation recommendation, UUID toUserId) {
-        RecommendationDto saved = toDto(recommendationRepository.save(recommendation));
+        RecommendationDto saved = toDto(recommendationRepository.save(recommendation), Map.of());
         messagingTemplate.convertAndSendToUser(
                 toUserId.toString(),
                 "/queue/recommendations",
@@ -263,20 +265,22 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     @Transactional(readOnly = true)
     public List<RecommendationDto> listInbox(UUID userId) {
-        return recommendationRepository
-                .findByToUser_IdAndStatusOrderByCreatedAtDesc(userId, RecommendationStatus.PENDING)
-                .stream()
-                .map(this::toDto)
+        List<Recommendation> recommendations = recommendationRepository
+                .findByToUser_IdAndStatusOrderByCreatedAtDesc(userId, RecommendationStatus.PENDING);
+        Map<UUID, Integer> shelfBookCounts = loadShelfBookCounts(recommendations);
+        return recommendations.stream()
+                .map(recommendation -> toDto(recommendation, shelfBookCounts))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RecommendationDto> listSent(UUID userId) {
-        return recommendationRepository
-                .findByFromUser_IdAndStatusOrderByCreatedAtDesc(userId, RecommendationStatus.PENDING)
-                .stream()
-                .map(this::toDto)
+        List<Recommendation> recommendations = recommendationRepository
+                .findByFromUser_IdAndStatusOrderByCreatedAtDesc(userId, RecommendationStatus.PENDING);
+        Map<UUID, Integer> shelfBookCounts = loadShelfBookCounts(recommendations);
+        return recommendations.stream()
+                .map(recommendation -> toDto(recommendation, shelfBookCounts))
                 .toList();
     }
 
@@ -295,14 +299,14 @@ public class RecommendationServiceImpl implements RecommendationService {
             shelfService.cloneForRecommendationRecipient(userId, recommenderId, saved.getShelf().getId());
         }
         businessMetrics.recordRecommendationAccepted();
-        return toDto(saved);
+        return toDto(saved, Map.of());
     }
 
     @Override
     public RecommendationDto dismiss(UUID userId, UUID recommendationId) {
         Recommendation recommendation = getPendingForRecipient(recommendationId, userId);
         recommendation.setStatus(RecommendationStatus.DISMISSED);
-        return toDto(recommendationRepository.save(recommendation));
+        return toDto(recommendationRepository.save(recommendation), Map.of());
     }
 
     @Override
@@ -366,13 +370,16 @@ public class RecommendationServiceImpl implements RecommendationService {
         return recommendation;
     }
 
-    private RecommendationDto toDto(Recommendation recommendation) {
+    private RecommendationDto toDto(Recommendation recommendation, Map<UUID, Integer> shelfBookCounts) {
         User fromUser = recommendation.getFromUser();
         BookDto book = recommendation.getTargetType() == RecommendationTargetType.BOOK && recommendation.getBook() != null
-                ? bookService.getById(recommendation.getBook().getId())
+                ? toBookDto(recommendation.getBook())
                 : null;
         ShelfDto shelf = recommendation.getTargetType() == RecommendationTargetType.SHELF && recommendation.getShelf() != null
-                ? shelfService.getRecommendationPreview(recommendation.getShelf().getId())
+                ? toShelfDto(
+                        recommendation.getShelf(),
+                        shelfBookCounts.getOrDefault(recommendation.getShelf().getId(), 0)
+                )
                 : null;
         return new RecommendationDto(
                 recommendation.getId(),
@@ -390,5 +397,58 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private RecommendationUserDto toUserDto(User user) {
         return new RecommendationUserDto(user.getId(), user.getDisplayName(), user.getAvatarUrl());
+    }
+
+    private BookDto toBookDto(Book book) {
+        return new BookDto(
+                book.getId(),
+                book.getTitle(),
+                book.getSubtitle(),
+                book.getAuthors(),
+                book.getIsbn(),
+                book.getPageCount(),
+                book.getCoverUrl(),
+                book.getDescription(),
+                book.getSource(),
+                book.getExternalId(),
+                book.getAverageRating(),
+                book.getRatingCount(),
+                book.getCreatedBy(),
+                book.getUpdatedBy(),
+                book.getCreatedAt(),
+                book.getUpdatedAt()
+        );
+    }
+
+    private ShelfDto toShelfDto(Shelf shelf, int bookCount) {
+        return new ShelfDto(
+                shelf.getId(),
+                shelf.getName(),
+                shelf.getSlug(),
+                shelf.getDescription(),
+                shelf.getIcon(),
+                shelf.getVisibility(),
+                shelf.getSortOrder(),
+                shelf.getOwner().getId(),
+                null,
+                bookCount,
+                shelf.getCreatedAt(),
+                shelf.getUpdatedAt(),
+                DisplayNames.format(shelf.getOwner())
+        );
+    }
+
+    private Map<UUID, Integer> loadShelfBookCounts(List<Recommendation> recommendations) {
+        List<UUID> shelfIds = recommendations.stream()
+                .map(Recommendation::getShelf)
+                .filter(java.util.Objects::nonNull)
+                .map(Shelf::getId)
+                .distinct()
+                .toList();
+        if (shelfIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Integer> counts = shelfService.countBooksByShelfIds(shelfIds);
+        return counts != null ? counts : Map.of();
     }
 }

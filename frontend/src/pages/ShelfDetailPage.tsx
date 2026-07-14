@@ -13,6 +13,7 @@ import { CloneShelfDialog } from '../components/shelves/CloneShelfDialog'
 import { EditShelfModal } from '../components/shelves/EditShelfModal'
 import { ShelfSharingPanel } from '../components/shelves/ShelfSharingPanel'
 import { ShelfVisibilityBadge } from '../components/shelves/ShelfCard'
+import { VisibilityPicker } from '../components/shelves/VisibilityPicker'
 import { CommentThread } from '../components/comments/CommentThread'
 import { Button } from '../components/ui/Button'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -212,18 +213,13 @@ export function ShelfDetailPage() {
                     Edit shelf
                   </Button>
                 )}
-                {isOwner &&
-                  (['SECRET', 'PRIVATE', 'FRIENDS', 'PUBLIC'] as ShelfVisibility[]).map((v) => (
-                    <Button
-                      key={v}
-                      size="sm"
-                      variant={shelf.visibility === v ? 'primary' : 'secondary'}
-                      onClick={() => updateVisibilityMutation.mutate(v)}
-                      disabled={updateVisibilityMutation.isPending}
-                    >
-                      {v.charAt(0) + v.slice(1).toLowerCase()}
-                    </Button>
-                  ))}
+                {isOwner && (
+                  <VisibilityPicker
+                    compact
+                    value={shelf.visibility}
+                    onChange={(visibility) => updateVisibilityMutation.mutate(visibility)}
+                  />
+                )}
                 <Button onClick={() => setAddOpen(true)}>
                   <Plus className="h-4 w-4" />
                   Add books

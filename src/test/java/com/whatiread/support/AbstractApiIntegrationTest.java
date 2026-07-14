@@ -35,20 +35,35 @@ public abstract class AbstractApiIntegrationTest {
         return "user-" + UUID.randomUUID() + "@example.com";
     }
 
+    protected String uniqueUsername() {
+        return "u" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
     protected AuthSession registerUser() throws Exception {
-        return registerUser(uniqueEmail(), DEFAULT_PASSWORD, "Jane", "Doe");
+        return registerUser(uniqueEmail(), uniqueUsername(), DEFAULT_PASSWORD, "Jane", "Doe");
     }
 
     protected AuthSession registerUser(String email, String password, String firstName, String lastName)
             throws Exception {
+        return registerUser(email, uniqueUsername(), password, firstName, lastName);
+    }
+
+    protected AuthSession registerUser(
+            String email,
+            String username,
+            String password,
+            String firstName,
+            String lastName
+    ) throws Exception {
         String body = """
                 {
                   "email": "%s",
+                  "username": "%s",
                   "password": "%s",
                   "firstName": "%s",
                   "lastName": "%s"
                 }
-                """.formatted(email, password, firstName, lastName);
+                """.formatted(email, username, password, firstName, lastName);
 
         String response = mockMvc.perform(post(ApiPaths.AUTH + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,7 +77,8 @@ public abstract class AbstractApiIntegrationTest {
                 JsonPath.read(response, JSON_PATH_ACCESS_TOKEN),
                 JsonPath.read(response, JSON_PATH_REFRESH_TOKEN),
                 UUID.fromString(JsonPath.read(response, JSON_PATH_USER_ID)),
-                JsonPath.read(response, JSON_PATH_USER_EMAIL)
+                JsonPath.read(response, JSON_PATH_USER_EMAIL),
+                username
         );
     }
 
@@ -91,7 +107,8 @@ public abstract class AbstractApiIntegrationTest {
                 JsonPath.read(response, JSON_PATH_ACCESS_TOKEN),
                 JsonPath.read(response, JSON_PATH_REFRESH_TOKEN),
                 UUID.fromString(JsonPath.read(response, JSON_PATH_USER_ID)),
-                JsonPath.read(response, JSON_PATH_USER_EMAIL)
+                JsonPath.read(response, JSON_PATH_USER_EMAIL),
+                JsonPath.read(response, "$.user.username")
         );
     }
 
@@ -175,6 +192,12 @@ public abstract class AbstractApiIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    protected record AuthSession(String accessToken, String refreshToken, UUID userId, String email) {
+    protected record AuthSession(
+            String accessToken,
+            String refreshToken,
+            UUID userId,
+            String email,
+            String username
+    ) {
     }
 }

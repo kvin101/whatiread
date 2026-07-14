@@ -77,8 +77,8 @@ class FriendServiceImplTest {
     void setUp() {
         requesterId = UUID.randomUUID();
         addresseeId = UUID.randomUUID();
-        requester = new User("a@example.com", HASH, "Alice", "A");
-        addressee = new User("b@example.com", HASH, "Bob", "B");
+        requester = new User("a@example.com", "alice", HASH, "Alice", "A");
+        addressee = new User("b@example.com", "bob", HASH, "Bob", "B");
         setId(requester, requesterId);
         setId(addressee, addresseeId);
     }

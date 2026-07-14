@@ -125,7 +125,7 @@ class LibraryServiceImplTest {
         userId = UUID.randomUUID();
         bookId = UUID.randomUUID();
         userBookId = UUID.randomUUID();
-        user = new User("reader@example.com", "hash", "Reader", "User");
+        user = new User("reader@example.com", "reader", "hash", "Reader", "User");
         setId(user, userId);
         book = new Book();
         book.setTitle(DUNE_2);

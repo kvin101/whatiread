@@ -46,7 +46,7 @@ class UserMapperTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        user = new User("admin@example.com", "hash", "Admin", "User");
+        user = new User("admin@example.com", "adminuser", "hash", "Admin", "User");
         setId(user, userId);
     }
 

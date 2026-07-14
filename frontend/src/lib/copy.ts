@@ -102,8 +102,8 @@ export const copy = {
   friends: {
     title: 'Co-conspirators',
     description: 'People you trust with recs, shelves, and spicy takes on chapter 12',
-    inviteLabel: 'Recruit by email',
-    invitePlaceholder: 'reader@probably-has-a-tbr.com',
+    inviteLabel: 'Find a reader',
+    invitePlaceholder: 'Search by username or name…',
     send: 'Slide into their DMs (politely)',
     incoming: 'Want in',
     outgoing: 'Waiting on them',

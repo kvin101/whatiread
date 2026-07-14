@@ -52,7 +52,7 @@ class CurrentUserIdArgumentResolverTest {
     @Test
     void resolvesAuthenticatedUserId() throws Exception {
         UUID userId = UUID.randomUUID();
-        User user = new User("reader@example.com", "hash", "Jane", "Doe");
+        User user = new User("reader@example.com", "reader", "hash", "Jane", "Doe");
         setUserId(user, userId);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(new AuthenticatedUser(user, false), null));

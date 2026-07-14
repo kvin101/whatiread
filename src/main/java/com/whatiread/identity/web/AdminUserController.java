@@ -6,8 +6,11 @@ import com.whatiread.identity.api.AdminSetUserEnabledRequest;
 import com.whatiread.identity.api.AdminUserDto;
 import com.whatiread.identity.security.CurrentUserId;
 import com.whatiread.identity.service.AdminUserService;
+import com.whatiread.identity.suggest.AdminUserSuggestDto;
+import com.whatiread.identity.suggest.UserSuggestService;
 import com.whatiread.shared.web.ApiPaths;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,9 +34,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
+    private final UserSuggestService userSuggestService;
 
-    public AdminUserController(AdminUserService adminUserService) {
+    public AdminUserController(AdminUserService adminUserService, UserSuggestService userSuggestService) {
         this.adminUserService = adminUserService;
+        this.userSuggestService = userSuggestService;
+    }
+
+    @GetMapping("/suggest")
+    List<AdminUserSuggestDto> suggest(
+            @RequestParam("q") String query,
+            @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return userSuggestService.suggestAdmin(query, limit);
     }
 
     @GetMapping

@@ -21,6 +21,7 @@ public class UserLookupServiceImpl implements UserLookupService {
     private static UserSummaryDto toSummary(User user) {
         return new UserSummaryDto(
                 user.getId(),
+                user.getUsername(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
                 user.getFirstName(),

@@ -23,9 +23,16 @@ export interface Page<T> {
   last?: boolean
 }
 
+export interface CursorPage<T> {
+  items: T[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 export interface User {
   id: string
   email: string
+  username: string
   firstName?: string
   lastName?: string
   displayName?: string
@@ -49,6 +56,7 @@ export type AdminUserRole = 'USER' | 'ADMIN'
 export interface AdminUser {
   id: string
   email: string
+  username: string
   firstName?: string
   lastName?: string
   displayName?: string
@@ -59,6 +67,7 @@ export interface AdminUser {
 
 export interface AdminCreateUserRequest {
   email: string
+  username: string
   password: string
   firstName: string
   lastName?: string
@@ -69,6 +78,13 @@ export interface AuthResponse {
   accessToken: string
   refreshToken: string
   user: User
+}
+
+export interface UsernameAvailability {
+  username: string
+  valid: boolean
+  available: boolean
+  message?: string | null
 }
 
 export interface Book {
@@ -85,7 +101,7 @@ export interface Book {
 }
 
 export interface BookSearchResult {
-  id: string
+  id?: string
   title: string
   authors: string[]
   isbn?: string
@@ -93,6 +109,39 @@ export interface BookSearchResult {
   coverUrl?: string
   externalId?: string
   source?: 'MANUAL' | 'OPEN_LIBRARY' | 'GOODREADS'
+}
+
+export interface BookPreview {
+  title: string
+  subtitle?: string
+  authors: string[]
+  isbn?: string
+  pageCount?: number
+  coverUrl?: string
+  description?: string
+  publishYear?: number
+  subjects?: string[]
+  averageRating?: number
+  ratingCount?: number
+  source?: BookSearchResult['source']
+  externalId?: string
+}
+
+export interface BookSuggestResult {
+  title: string
+}
+
+export interface UserSuggestResult {
+  id: string
+  username: string
+  displayName: string
+}
+
+export interface AdminUserSuggestResult {
+  id: string
+  username: string
+  displayName: string
+  email: string
 }
 
 export interface UserBookNote {
@@ -121,6 +170,7 @@ export interface UserBook {
 
 export interface UserProfile {
   id: string
+  username: string
   displayName?: string
   firstName?: string
   lastName?: string

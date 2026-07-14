@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { setupApi } from '../api/setup'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import { Button } from '../components/ui/Button'
 import { Input, Label } from '../components/ui/Input'
@@ -11,6 +10,7 @@ import { copy } from '../lib/copy'
 import { safeAppPath } from '../lib/safeRedirect'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { getApiErrorMessage } from '../lib/api'
 
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth()
@@ -49,7 +49,7 @@ export function LoginPage() {
       await login(email, password)
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Login failed — wrong password or gremlins.')
+      setError(getApiErrorMessage(err, 'Login failed — wrong password or gremlins.'))
     } finally {
       setLoading(false)
     }
@@ -69,11 +69,11 @@ export function LoginPage() {
 
       <form onSubmit={submit} className="mt-8 space-y-4">
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email or username</Label>
           <Input
             id="email"
-            type="email"
-            autoComplete="email"
+            type="text"
+            autoComplete="username"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}

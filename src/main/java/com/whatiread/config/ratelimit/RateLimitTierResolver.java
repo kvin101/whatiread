@@ -33,14 +33,21 @@ public class RateLimitTierResolver {
         if (!path.startsWith(ApiPaths.V1_PREFIX)) {
             return Optional.empty();
         }
+        String method = request.getMethod();
         if (path.startsWith(ApiPaths.AUTH + "/") || path.startsWith(ApiPaths.SETUP + "/")) {
+            if ("GET".equalsIgnoreCase(method) && ApiPaths.AUTH_USERNAME_AVAILABLE.equals(path)) {
+                return Optional.of(RateLimitTier.READ);
+            }
             return Optional.of(RateLimitTier.STRICT_AUTH);
         }
         if (path.startsWith(ApiPaths.IMPORT + "/")) {
             return Optional.of(RateLimitTier.STRICT_IMPORT);
         }
-        String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) && path.startsWith(ApiPaths.BOOKS_SEARCH)) {
+        if ("GET".equalsIgnoreCase(method)
+                && (path.startsWith(ApiPaths.BOOKS_SEARCH)
+                || path.startsWith(ApiPaths.BOOKS_SUGGEST)
+                || path.startsWith(ApiPaths.USERS_SUGGEST)
+                || path.startsWith(ApiPaths.ADMIN_USERS_SUGGEST))) {
             return Optional.of(RateLimitTier.SEARCH);
         }
         if (isWriteMethod(method)) {

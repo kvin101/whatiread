@@ -30,7 +30,6 @@ class RateLimitFilterTest {
     private static final String OTHER_CLIENT_IP_2 = "203.0.113.2";
     private static final String READ_TIER = "read";
     private static final String STRICT_AUTH_TIER = "strict-auth";
-    private static final String STRICT_IMPORT_TIER = "strict-import";
     private static final String WRITE_TIER = "write";
     private static final String TOO_MANY_REQUESTS = "Too Many Requests";
 
@@ -52,6 +51,7 @@ class RateLimitFilterTest {
                 null,
                 null,
                 new WhatIReadProperties.RateLimit(enabled),
+                null,
                 null
         );
         return new RateLimitFilter(properties, new RateLimitTierResolver(), clientRateLimiter);
@@ -106,21 +106,16 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void usesStricterAuthAndImportTiers() throws ServletException, IOException {
+    void usesStricterAuthTier() throws ServletException, IOException {
         RateLimitFilter filter = filter(
                 true, Map.of(
                         READ_TIER, config(100),
-                        STRICT_AUTH_TIER, config(2),
-                        STRICT_IMPORT_TIER, config(2)
+                        STRICT_AUTH_TIER, config(2)
                 ));
 
         assertAllowed(filter, request("POST", ApiPaths.AUTH + "/login", CLIENT_IP));
         assertAllowed(filter, request("POST", ApiPaths.AUTH + "/register", CLIENT_IP));
         assertRateLimited(filter, request("POST", ApiPaths.AUTH + "/refresh", CLIENT_IP));
-
-        assertAllowed(filter, request("POST", ApiPaths.IMPORT_GOODREADS, CLIENT_IP));
-        assertAllowed(filter, request("POST", ApiPaths.IMPORT_GOODREADS, CLIENT_IP));
-        assertRateLimited(filter, request("POST", ApiPaths.IMPORT_GOODREADS, CLIENT_IP));
     }
 
     @Test

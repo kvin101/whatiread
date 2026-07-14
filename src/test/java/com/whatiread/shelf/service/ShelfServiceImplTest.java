@@ -54,6 +54,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
@@ -61,6 +63,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ShelfServiceImplTest {
 
 
@@ -96,6 +99,8 @@ class ShelfServiceImplTest {
     private FriendshipService friendshipService;
     @Mock
     private ShelfEventService shelfEventService;
+    @Mock
+    private ShelfCloneService shelfCloneService;
     @Mock
     private ExploreShelfReadModelService exploreShelfReadModelService;
     @Mock
@@ -155,7 +160,7 @@ class ShelfServiceImplTest {
     void setUp() {
         userId = UUID.randomUUID();
         shelfId = UUID.randomUUID();
-        owner = new User("owner@example.com", HASH, "Owner", USER);
+        owner = new User("owner@example.com", "owner", HASH, "Owner", USER);
         setId(owner, userId);
         shelf = new Shelf(owner, READING_LIST_2, READING_LIST);
         setId(shelf, shelfId);
@@ -297,7 +302,7 @@ class ShelfServiceImplTest {
     @Test
     void cloneShelfCopiesAccessibleBooksForNonOwner() {
         UUID clonerId = UUID.randomUUID();
-        User cloner = new User(CLONER_EXAMPLE_COM, HASH, CLONER, USER);
+        User cloner = new User(CLONER_EXAMPLE_COM, "cloner", HASH, CLONER, USER);
         setId(cloner, clonerId);
         Book book = new Book();
         book.setTitle(DUNE);
@@ -325,7 +330,7 @@ class ShelfServiceImplTest {
                 clonerId, shelfId, new CloneShelfRequest("Cloned List", true, ShelfVisibility.PRIVATE));
 
         assertThat(cloned.name()).isEqualTo("Cloned List");
-        verify(shelfBookRepository).save(any(ShelfBook.class));
+        verify(shelfCloneService).cloneWithBooks(eq(shelf), any(Shelf.class), eq(clonerId), eq(true), any());
     }
 
     @Test
@@ -389,7 +394,7 @@ class ShelfServiceImplTest {
 
     @Test
     void listMembersReturnsShelfMembership() {
-        User member = new User(MEMBER_EXAMPLE_COM, HASH, MEMBER, USER);
+        User member = new User(MEMBER_EXAMPLE_COM, "member", HASH, MEMBER, USER);
         UUID memberId = UUID.randomUUID();
         setId(member, memberId);
         ShelfMember shelfMember = new ShelfMember(shelf, member, ShelfMemberRole.EDITOR, userId);
@@ -406,7 +411,7 @@ class ShelfServiceImplTest {
     @Test
     void addMemberPersistsEditor() {
         UUID memberId = UUID.randomUUID();
-        User member = new User(MEMBER_EXAMPLE_COM, HASH, MEMBER, USER);
+        User member = new User(MEMBER_EXAMPLE_COM, "member", HASH, MEMBER, USER);
         setId(member, memberId);
         ShelfMember saved = new ShelfMember(shelf, member, ShelfMemberRole.EDITOR, userId);
         setId(saved, UUID.randomUUID());
@@ -424,7 +429,7 @@ class ShelfServiceImplTest {
     @Test
     void updateMemberChangesRole() {
         UUID memberId = UUID.randomUUID();
-        User member = new User(MEMBER_EXAMPLE_COM, HASH, MEMBER, USER);
+        User member = new User(MEMBER_EXAMPLE_COM, "member", HASH, MEMBER, USER);
         setId(member, memberId);
         ShelfMember shelfMember = new ShelfMember(shelf, member, ShelfMemberRole.EDITOR, userId);
         setId(shelfMember, UUID.randomUUID());
@@ -441,7 +446,7 @@ class ShelfServiceImplTest {
     @Test
     void removeMemberDeletesNonOwner() {
         UUID memberId = UUID.randomUUID();
-        User member = new User(MEMBER_EXAMPLE_COM, HASH, MEMBER, USER);
+        User member = new User(MEMBER_EXAMPLE_COM, "member", HASH, MEMBER, USER);
         setId(member, memberId);
         ShelfMember shelfMember = new ShelfMember(shelf, member, ShelfMemberRole.EDITOR, userId);
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
@@ -705,7 +710,7 @@ class ShelfServiceImplTest {
     @Test
     void cloneShelfWithoutBooksSkipsCopy() {
         UUID clonerId = UUID.randomUUID();
-        User cloner = new User(CLONER_EXAMPLE_COM, HASH, CLONER, USER);
+        User cloner = new User(CLONER_EXAMPLE_COM, "cloner", HASH, CLONER, USER);
         setId(cloner, clonerId);
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
         when(userLookupService.getPersistenceReference(clonerId)).thenReturn(cloner);
@@ -716,7 +721,7 @@ class ShelfServiceImplTest {
 
         shelfService.cloneShelf(clonerId, shelfId, new CloneShelfRequest("Copy", false, ShelfVisibility.PRIVATE));
 
-        verify(shelfBookRepository, never()).findByShelf_IdOrderByPositionAsc(shelfId);
+        verify(shelfCloneService).cloneWithBooks(eq(shelf), any(Shelf.class), eq(clonerId), eq(false), any());
     }
 
     @Test
@@ -854,7 +859,7 @@ class ShelfServiceImplTest {
     @Test
     void cloneShelfSkipsInaccessibleBooks() {
         UUID clonerId = UUID.randomUUID();
-        User cloner = new User(CLONER_EXAMPLE_COM, HASH, CLONER, USER);
+        User cloner = new User(CLONER_EXAMPLE_COM, "cloner", HASH, CLONER, USER);
         setId(cloner, clonerId);
         Book visibleBook = new Book();
         setId(visibleBook, UUID.randomUUID());
@@ -882,7 +887,7 @@ class ShelfServiceImplTest {
 
         shelfService.cloneShelf(clonerId, shelfId, new CloneShelfRequest("Copy", true, ShelfVisibility.PRIVATE));
 
-        verify(shelfBookRepository).save(any(ShelfBook.class));
+        verify(shelfCloneService).cloneWithBooks(eq(shelf), any(Shelf.class), eq(clonerId), eq(true), any());
     }
 
     @Test

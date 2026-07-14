@@ -11,8 +11,11 @@ export const API_PATHS = {
     login: apiV1('/auth/login'),
     logout: apiV1('/auth/logout'),
     refresh: apiV1('/auth/refresh'),
+    usernameAvailable: apiV1('/auth/username/available'),
   },
   me: apiV1('/me'),
+  meAvatar: apiV1('/me/avatar'),
+  meUsernameAvailable: apiV1('/me/username/available'),
   setup: {
     required: apiV1('/setup/required'),
     admin: apiV1('/setup/admin'),
@@ -20,6 +23,8 @@ export const API_PATHS = {
   books: {
     root: apiV1('/books'),
     search: apiV1('/books/search'),
+    suggest: apiV1('/books/suggest'),
+    externalPreview: apiV1('/books/external-preview'),
     byId: (bookId: string) => apiV1(`/books/${bookId}`),
   },
   library: {
@@ -68,6 +73,7 @@ export const API_PATHS = {
   users: {
     profile: (userId: string) => apiV1(`/users/${userId}/profile`),
     shelves: (userId: string) => apiV1(`/users/${userId}/shelves`),
+    suggest: apiV1('/users/suggest'),
   },
   conversations: {
     root: apiV1('/conversations'),
@@ -100,6 +106,7 @@ export const API_PATHS = {
   },
   admin: {
     users: apiV1('/admin/users'),
+    usersSuggest: apiV1('/admin/users/suggest'),
     user: (userId: string) => apiV1(`/admin/users/${userId}`),
     userPassword: (userId: string) => apiV1(`/admin/users/${userId}/password`),
     userEnabled: (userId: string) => apiV1(`/admin/users/${userId}/enabled`),

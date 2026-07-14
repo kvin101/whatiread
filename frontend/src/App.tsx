@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
+import { AuthQuerySync } from './auth/AuthQuerySync'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { ChatProvider } from './chat/ChatProvider'
 import { AppShell } from './components/layout/AppShell'
@@ -19,11 +20,13 @@ import { SharedShelfPage } from './pages/SharedShelfPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
 import { AdminRoute } from './auth/AdminRoute'
 import { APP_ROUTES } from './api/paths'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AuthQuerySync />
         <Routes>
           <Route path={APP_ROUTES.setup} element={<SetupPage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
@@ -31,11 +34,13 @@ export default function App() {
           <Route path="/share/shelf/:token" element={<SharedShelfPage />} />
           <Route
             element={
-              <ProtectedRoute>
-                <ChatProvider enabled>
-                  <AppShell />
-                </ChatProvider>
-              </ProtectedRoute>
+              <ErrorBoundary>
+                <ProtectedRoute>
+                  <ChatProvider enabled>
+                    <AppShell />
+                  </ChatProvider>
+                </ProtectedRoute>
+              </ErrorBoundary>
             }
           >
             <Route index element={<Navigate to={APP_ROUTES.library} replace />} />

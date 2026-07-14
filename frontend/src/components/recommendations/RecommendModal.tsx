@@ -1,9 +1,10 @@
 import { BookOpen, Layers, Search, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { Book, FriendSummary, RecommendationTargetType, Shelf } from '../../api/types'
+import type { Book, FriendSummary, RecommendationTargetType, Shelf, UserSuggestResult } from '../../api/types'
 import { copy } from '../../lib/copy'
 import { cn, displayName, formatAuthors, initials } from '../../lib/utils'
 import { BookCover } from '../books/BookCover'
+import { UserSuggestField } from '../users/UserSuggestField'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { Input, Label } from '../ui/Input'
@@ -72,14 +73,17 @@ export function RecommendModal({
   }, [open])
 
   const filteredFriends = useMemo(() => {
-    const q = friendSearch.trim().toLowerCase()
     const sorted = [...friends].sort((a, b) => displayName(a).localeCompare(displayName(b)))
-    if (!q) return sorted
-    return sorted.filter((f) => {
-      const name = displayName(f).toLowerCase()
-      return name.includes(q) || f.email.toLowerCase().includes(q)
-    })
-  }, [friends, friendSearch])
+    return sorted
+  }, [friends])
+
+  const selectFriend = (user: UserSuggestResult) => {
+    const friend = friends.find((f) => f.id === user.id)
+    if (friend) {
+      setSelectedFriend(friend)
+      setFriendSearch(friend.displayName || displayName(friend))
+    }
+  }
 
   const visibleFriendList = filteredFriends.slice(0, visibleFriends)
   const friendsHasMore = visibleFriends < filteredFriends.length
@@ -161,28 +165,17 @@ export function RecommendModal({
             />
           ) : (
             <div className="mt-2">
-              <div className="relative mb-3">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                <Input
-                  type="search"
-                  placeholder="Search friends by name or email…"
+              <div className="mb-3">
+                <UserSuggestField
                   value={friendSearch}
-                  onChange={(e) => {
-                    setFriendSearch(e.target.value)
-                    setVisibleFriends(PAGE_SIZE)
-                  }}
-                  className="pl-9"
+                  onValueChange={setFriendSearch}
+                  onSelect={selectFriend}
+                  scope="friends"
+                  placeholder="Search friends by username or name…"
                   autoFocus
                 />
               </div>
-              {filteredFriends.length === 0 ? (
-                <EmptyState
-                  icon={Search}
-                  title="No matches"
-                  description="Try a different name or email."
-                  className="py-8"
-                />
-              ) : (
+              {friendSearch.trim().length < 2 && (
                 <>
                   <ul className="max-h-40 space-y-2 overflow-y-auto">
                     {visibleFriendList.map((f) => {

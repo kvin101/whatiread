@@ -2,6 +2,7 @@ package com.whatiread.identity.web;
 
 import com.whatiread.identity.api.UserProfileDto;
 import com.whatiread.identity.security.CurrentUserId;
+import com.whatiread.identity.service.UserIdentityResolver;
 import com.whatiread.identity.service.UserProfileService;
 import com.whatiread.shared.web.ApiPaths;
 import com.whatiread.shelf.api.ShelfDto;
@@ -19,19 +20,27 @@ public class UserProfileController {
 
     private final UserProfileService userProfileService;
     private final ShelfService shelfService;
+    private final UserIdentityResolver userIdentityResolver;
 
-    public UserProfileController(UserProfileService userProfileService, ShelfService shelfService) {
+    public UserProfileController(
+            UserProfileService userProfileService,
+            ShelfService shelfService,
+            UserIdentityResolver userIdentityResolver
+    ) {
         this.userProfileService = userProfileService;
         this.shelfService = shelfService;
+        this.userIdentityResolver = userIdentityResolver;
     }
 
-    @GetMapping("/{userId}/profile")
-    UserProfileDto profile(@PathVariable UUID userId, @CurrentUserId UUID viewerId) {
+    @GetMapping("/{userRef}/profile")
+    UserProfileDto profile(@PathVariable String userRef, @CurrentUserId UUID viewerId) {
+        UUID userId = userIdentityResolver.resolveUserId(userRef);
         return userProfileService.getProfile(userId, viewerId);
     }
 
-    @GetMapping("/{userId}/shelves")
-    List<ShelfDto> listShelves(@PathVariable UUID userId, @CurrentUserId UUID viewerId) {
+    @GetMapping("/{userRef}/shelves")
+    List<ShelfDto> listShelves(@PathVariable String userRef, @CurrentUserId UUID viewerId) {
+        UUID userId = userIdentityResolver.resolveUserId(userRef);
         return shelfService.listVisibleOnProfile(userId, viewerId);
     }
 }

@@ -2,10 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, Shield, Trash2, UserPlus, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { adminApi } from '../api/admin'
-import type { AdminCreateUserRequest, AdminUser, AdminUserRole } from '../api/types'
-import { ApiError } from '../api/client'
+import type { AdminCreateUserRequest, AdminUser, AdminUserRole, AdminUserSuggestResult } from '../api/types'
+import { UsernameAvailabilityHint } from '../components/ui/UsernameAvailabilityHint'
+import { useUsernameAvailability } from '../hooks/useUsernameAvailability'
+import { useAdminUserSuggest } from '../hooks/useAdminUserSuggest'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
+import { SuggestField } from '../components/ui/SuggestField'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
@@ -15,6 +18,7 @@ import { Select } from '../components/ui/Select'
 import { copy } from '../lib/copy'
 import { QUERY_KEYS } from '../lib/constants'
 import { displayName } from '../lib/utils'
+import { getApiErrorMessage } from '../lib/api'
 
 function StatusBadge({ user }: { user: AdminUser }) {
   if (!user.enabled) {
@@ -42,12 +46,20 @@ export function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState({
     email: '',
+    username: '',
     password: '',
     firstName: '',
     lastName: '',
     role: 'USER' as AdminUserRole,
   })
   const [resetPassword, setResetPassword] = useState('')
+  const usernameCheck = useUsernameAvailability(createForm.username)
+
+  const {
+    data: adminSuggestions = [],
+    isFetching: adminSuggestFetching,
+    isError: adminSuggestError,
+  } = useAdminUserSuggest(searchInput)
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.admin.users(page, search),
@@ -62,10 +74,10 @@ export function AdminUsersPage() {
     onSuccess: () => {
       invalidate()
       setCreateOpen(false)
-      setCreateForm({ email: '', password: '', firstName: '', lastName: '', role: 'USER' })
+      setCreateForm({ email: '', username: '', password: '', firstName: '', lastName: '', role: 'USER' })
       setError(null)
     },
-    onError: (e: Error) => setError(e instanceof ApiError ? e.message : 'Could not create user'),
+    onError: (e: Error) => setError(getApiErrorMessage(e, 'Could not create user')),
   })
 
   const resetMutation = useMutation({
@@ -77,7 +89,7 @@ export function AdminUsersPage() {
       setResetPassword('')
       setError(null)
     },
-    onError: (e: Error) => setError(e instanceof ApiError ? e.message : 'Could not reset password'),
+    onError: (e: Error) => setError(getApiErrorMessage(e, 'Could not reset password')),
   })
 
   const enabledMutation = useMutation({
@@ -145,11 +157,31 @@ export function AdminUsersPage() {
           setSearch(searchInput.trim())
         }}
       >
-        <Input
-          className="max-w-md flex-1"
-          placeholder={copy.admin.searchPlaceholder}
+        <SuggestField<AdminUserSuggestResult>
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
+          onValueChange={setSearchInput}
+          suggestions={adminSuggestions}
+          isFetching={adminSuggestFetching}
+          isError={adminSuggestError}
+          placeholder={copy.admin.searchPlaceholder}
+          loadingLabel="Finding users…"
+          emptyLabel="No matching users"
+          getKey={(user) => user.id}
+          onSelect={(user) => {
+            setSearchInput(user.displayName)
+            setPage(0)
+            setSearch(user.displayName)
+          }}
+          renderItem={(user) => (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-medium text-ink">{user.displayName}</p>
+                <p className="truncate text-sm text-ink-muted">
+                  @{user.username} · {user.email}
+                </p>
+              </div>
+            </>
+          )}
         />
         <Button type="submit" variant="secondary">
           Search
@@ -183,7 +215,7 @@ export function AdminUsersPage() {
                 <tr key={user.id} className="border-b border-border/60 last:border-0">
                   <td className="px-4 py-3">
                     <p className="font-medium text-ink">{displayName(user)}</p>
-                    <p className="text-xs text-ink-muted">{user.email}</p>
+                    <p className="text-xs text-ink-muted">@{user.username} · {user.email}</p>
                   </td>
                   <td className="px-4 py-3 text-ink-muted">
                     {user.admin ? copy.admin.roleAdmin : copy.admin.roleUser}
@@ -272,6 +304,7 @@ export function AdminUsersPage() {
             e.preventDefault()
             createMutation.mutate({
               email: createForm.email.trim(),
+              username: createForm.username.trim(),
               password: createForm.password,
               firstName: createForm.firstName.trim(),
               lastName: createForm.lastName.trim() || undefined,
@@ -297,6 +330,20 @@ export function AdminUsersPage() {
               onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
               className="mt-1"
             />
+          </div>
+          <div>
+            <Label htmlFor="create-username">Username</Label>
+            <Input
+              id="create-username"
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
+              value={createForm.username}
+              onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
+              className="mt-1"
+            />
+            <UsernameAvailabilityHint value={createForm.username} check={usernameCheck} />
           </div>
           <div>
             <Label htmlFor="create-email">Email</Label>
@@ -334,7 +381,7 @@ export function AdminUsersPage() {
             </Select>
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
-          <Button type="submit" disabled={createMutation.isPending}>
+          <Button type="submit" disabled={createMutation.isPending || usernameCheck.data?.available === false}>
             {copy.admin.create.submit}
           </Button>
         </form>

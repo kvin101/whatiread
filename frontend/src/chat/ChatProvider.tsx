@@ -16,6 +16,8 @@ import { AUTH_HEADERS, WS_PATH, WS_STOMP } from '../api/paths'
 import type { ChatTypingEvent, Conversation, Message, MessageMention } from '../api/types'
 import { conversationsApi } from '../api/conversations'
 import { QUERY_KEYS } from '../lib/constants'
+import { appendMessagePage, type MessageInfiniteData } from '../lib/messagingCache'
+import { sortConversations } from '../lib/messaging'
 
 type MessageListener = (message: Message) => void
 type TypingListener = (event: ChatTypingEvent) => void
@@ -39,16 +41,6 @@ function normalizeMessage(raw: Message): Message {
     senderId: String(raw.senderId),
     mentions: raw.mentions ?? [],
   }
-}
-
-function appendMessage(messages: Message[] | undefined, incoming: Message): Message[] {
-  if (!messages?.length) {
-    return [incoming]
-  }
-  if (messages.some((m) => m.id === incoming.id)) {
-    return messages
-  }
-  return [...messages, incoming]
 }
 
 export function ChatProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
@@ -99,17 +91,18 @@ export function ChatProvider({ children, enabled }: { children: ReactNode; enabl
       const msg = normalizeMessage(raw)
       const isActive = activeConversationIdRef.current === msg.conversationId
 
-      queryClient.setQueryData<Message[]>(QUERY_KEYS.messages(msg.conversationId), (old) =>
-        appendMessage(old, msg),
+      queryClient.setQueryData<MessageInfiniteData>(QUERY_KEYS.messages(msg.conversationId), (old) =>
+        appendMessagePage(old, msg),
       )
 
       queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations.all, (old) => {
         if (!old?.length) return old
-        return old.map((c) =>
+        const next = old.map((c) =>
           c.id === msg.conversationId
             ? { ...c, lastMessage: msg, unreadCount: isActive ? 0 : c.unreadCount + 1 }
             : c,
         )
+        return sortConversations(next)
       })
 
       if (isActive) {
@@ -142,6 +135,8 @@ export function ChatProvider({ children, enabled }: { children: ReactNode; enabl
       heartbeatOutgoing: 10000,
       onConnect: () => {
         setConnected(true)
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations.all })
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations.unreadCount })
         client.subscribe(WS_STOMP.queueMessages, (frame) => {
           const msg = JSON.parse(frame.body) as Message
           notifyMessage(msg)

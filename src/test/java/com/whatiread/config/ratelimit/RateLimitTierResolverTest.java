@@ -25,6 +25,7 @@ class RateLimitTierResolverTest {
                 Arguments.of(ApiPaths.SETUP + "/complete", "POST", RateLimitTier.STRICT_AUTH),
                 Arguments.of(ApiPaths.IMPORT_GOODREADS, "POST", RateLimitTier.STRICT_IMPORT),
                 Arguments.of(ApiPaths.BOOKS_SEARCH, "GET", RateLimitTier.SEARCH),
+                Arguments.of(ApiPaths.BOOKS_SUGGEST, "GET", RateLimitTier.SEARCH),
                 Arguments.of(ApiPaths.BOOKS_SEARCH + "/extra", "GET", RateLimitTier.SEARCH),
                 Arguments.of(ApiPaths.LIBRARY, "POST", RateLimitTier.WRITE),
                 Arguments.of(ApiPaths.SHELVES + RESOURCE_ID, "PUT", RateLimitTier.WRITE),
@@ -75,6 +76,7 @@ class RateLimitTierResolverTest {
     @Test
     void searchTierAppliesOnlyToGetBookSearch() {
         assertThat(resolver.resolve(request("POST", ApiPaths.BOOKS_SEARCH))).contains(RateLimitTier.WRITE);
+        assertThat(resolver.resolve(request("POST", ApiPaths.BOOKS_SUGGEST))).contains(RateLimitTier.WRITE);
         assertThat(resolver.resolve(request("GET", ApiPaths.BOOKS + "/1"))).contains(RateLimitTier.READ);
     }
 }

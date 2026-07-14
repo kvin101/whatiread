@@ -1,7 +1,8 @@
-import { Check, MessageCircle, Search, UserPlus, Users } from 'lucide-react'
+import { Check, MessageCircle, UserPlus, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { Conversation, FriendSummary } from '../../api/types'
+import type { Conversation, FriendSummary, UserSuggestResult } from '../../api/types'
 import { displayName, initials } from '../../lib/utils'
+import { UserSuggestField } from '../users/UserSuggestField'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { Input } from '../ui/Input'
@@ -56,16 +57,17 @@ export function NewChatModal({
   )
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const sorted = [...friends].sort((a, b) =>
-      displayName(a).localeCompare(displayName(b)),
-    )
-    if (!q) return sorted
-    return sorted.filter((f) => {
-      const name = displayName(f).toLowerCase()
-      return name.includes(q) || f.email.toLowerCase().includes(q)
-    })
-  }, [friends, search])
+    return [...friends].sort((a, b) => displayName(a).localeCompare(displayName(b)))
+  }, [friends])
+
+  const selectFriend = (user: UserSuggestResult) => {
+    if (mode === 'direct') {
+      onPick(user.id)
+      return
+    }
+    toggleMember(user.id)
+    setSearch(user.displayName)
+  }
 
   const visible = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
@@ -123,17 +125,16 @@ export function NewChatModal({
       )}
 
       {friends.length > 0 && (
-        <div className="relative mb-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-          <Input
-            type="search"
-            placeholder="Search friends…"
+        <div className="mb-4">
+          <UserSuggestField
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
+            onValueChange={(value) => {
+              setSearch(value)
               setVisibleCount(PAGE_SIZE)
             }}
-            className="pl-9"
+            onSelect={selectFriend}
+            scope="friends"
+            placeholder="Search friends by username or name…"
             autoFocus
           />
         </div>
@@ -146,14 +147,7 @@ export function NewChatModal({
           description="Add friends first — then you can gossip about books here."
           className="py-10"
         />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No matches"
-          description="Try a different name or email."
-          className="py-10"
-        />
-      ) : (
+      ) : search.trim().length < 2 ? (
         <>
           <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
             {visible.map((f) => {
@@ -214,7 +208,7 @@ export function NewChatModal({
             </Button>
           )}
         </>
-      )}
+      ) : null}
 
       {mode === 'group' && friends.length > 0 && (
         <Button

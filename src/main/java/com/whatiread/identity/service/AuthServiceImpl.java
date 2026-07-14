@@ -14,6 +14,7 @@ import com.whatiread.identity.security.AuthenticatedUser;
 import com.whatiread.identity.security.SecurityUtils;
 import com.whatiread.identity.security.TokenHasher;
 import com.whatiread.instance.service.InstanceSettingsService;
+import com.whatiread.identity.suggest.UserSearchIndexService;
 import com.whatiread.shared.event.UserRegisteredEvent;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
@@ -41,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     private final TokenIssuer tokenIssuer;
     private final UserMapper userMapper;
     private final BusinessMetrics businessMetrics;
+    private final UsernameService usernameService;
+    private final UserSearchIndexService userSearchIndexService;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -51,7 +54,9 @@ public class AuthServiceImpl implements AuthService {
             OutboxEventPublisher outboxEventPublisher,
             TokenIssuer tokenIssuer,
             UserMapper userMapper,
-            BusinessMetrics businessMetrics
+            BusinessMetrics businessMetrics,
+            UsernameService usernameService,
+            UserSearchIndexService userSearchIndexService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -62,6 +67,8 @@ public class AuthServiceImpl implements AuthService {
         this.tokenIssuer = tokenIssuer;
         this.userMapper = userMapper;
         this.businessMetrics = businessMetrics;
+        this.usernameService = usernameService;
+        this.userSearchIndexService = userSearchIndexService;
     }
 
     @Override
@@ -72,8 +79,11 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmailIgnoreCase(request.email())) {
             throw new ConflictException("Email already registered");
         }
+        String username = usernameService.normalizeAndValidate(request.username());
+        usernameService.requireAvailable(username);
         User user = new User(
                 request.email().trim().toLowerCase(),
+                username,
                 passwordEncoder.encode(request.password()),
                 request.firstName().trim(),
                 request.lastName() != null ? request.lastName().trim() : null
@@ -83,6 +93,8 @@ public class AuthServiceImpl implements AuthService {
         }
         boolean firstUser = instanceSettingsService.isSetupRequired();
         userRepository.save(user);
+        usernameService.indexUsername(user.getUsername());
+        userSearchIndexService.syncUser(user);
         if (firstUser) {
             instanceSettingsService.markSetupComplete();
             instanceSettingsService.setAdminUserId(user.getId());
@@ -94,10 +106,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        String email = request.email().trim().toLowerCase();
+        String identifier = request.email().trim().toLowerCase();
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                    email,
+                    identifier,
                     request.password()
             ));
         } catch (BadCredentialsException ex) {
@@ -107,7 +119,8 @@ public class AuthServiceImpl implements AuthService {
             businessMetrics.recordLoginFailure("disabled");
             throw new UnauthorizedException("Account disabled");
         }
-        User user = userRepository.findByEmailIgnoreCase(email)
+        User user = userRepository.findByEmailIgnoreCase(identifier)
+                .or(() -> userRepository.findByUsernameIgnoreCase(identifier))
                 .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
         businessMetrics.recordLoginSuccess();
         return tokenIssuer.issueTokens(user);

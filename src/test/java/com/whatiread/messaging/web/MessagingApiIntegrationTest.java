@@ -59,8 +59,8 @@ class MessagingApiIntegrationTest extends AbstractApiIntegrationTest {
         mockMvc.perform(get(ApiPaths.CONVERSATIONS + "/{conversationId}/messages", conversationId)
                         .with(bearer(alice.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].body").value(HELLO_FROM_ALICE));
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].body").value(HELLO_FROM_ALICE));
 
         mockMvc.perform(get(ApiPaths.CONVERSATIONS + "/unread-count").with(bearer(bob.accessToken())))
                 .andExpect(status().isOk())
@@ -116,8 +116,8 @@ class MessagingApiIntegrationTest extends AbstractApiIntegrationTest {
         mockMvc.perform(get(ApiPaths.CONVERSATIONS + "/{conversationId}/messages", groupId)
                         .with(bearer(bob.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].body").value("Welcome everyone"));
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].body").value("Welcome everyone"));
 
         mockMvc.perform(get(ApiPaths.CONVERSATIONS + "/groups").with(bearer(alice.accessToken())))
                 .andExpect(status().isOk())

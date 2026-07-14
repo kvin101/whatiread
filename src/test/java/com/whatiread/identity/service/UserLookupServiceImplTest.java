@@ -36,7 +36,7 @@ class UserLookupServiceImplTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        user = new User(ADA_EXAMPLE_COM, "hash", ADA, LOVELACE);
+        user = new User(ADA_EXAMPLE_COM, "ada", "hash", ADA, LOVELACE);
     }
 
     @Test
@@ -55,6 +55,7 @@ class UserLookupServiceImplTest {
         UserSummaryDto summary = userLookupService.getSummary(userId);
 
         assertThat(summary.id()).isEqualTo(user.getId());
+        assertThat(summary.username()).isEqualTo("ada");
         assertThat(summary.displayName()).isEqualTo("Ada Lovelace");
         assertThat(summary.firstName()).isEqualTo(ADA);
         assertThat(summary.lastName()).isEqualTo(LOVELACE);

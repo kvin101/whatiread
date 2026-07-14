@@ -7,6 +7,7 @@ import com.whatiread.identity.api.UpdateProfileRequest;
 import com.whatiread.identity.api.UserResponse;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.repository.UserRepository;
+import com.whatiread.identity.suggest.UserSearchIndexService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,12 @@ class UserAccountServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private UsernameService usernameService;
+    @Mock
+    private UserSearchIndexService userSearchIndexService;
+    @Mock
+    private AvatarStorageService avatarStorageService;
 
     @InjectMocks
     private UserAccountServiceImpl userAccountService;
@@ -52,7 +59,7 @@ class UserAccountServiceImplTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        user = new User("reader@example.com", "hash", "Reader", "User");
+        user = new User("reader@example.com", "reader", "hash", "Reader", "User");
         setId(user, userId);
     }
 
@@ -61,13 +68,13 @@ class UserAccountServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toUserResponse(user)).thenReturn(new UserResponse(
-                userId, user.getEmail(), NEW, "Name", null, null, null,
-                null, null, null, null, null, null, false, null, true,
+                userId, user.getEmail(), user.getUsername(), NEW, "Name", null,
+                null, null, null, null, null, null, null, null, false, null, true,
                 java.time.Instant.parse("2024-01-01T00:00:00Z"), false));
 
         UserResponse response = userAccountService.updateProfile(
                 userId, new UpdateProfileRequest(
-                        " New ", " Name ", " ", " ", "  ", " ", " ", " ", " ", " ", null, "  ", false));
+                        " New ", " Name ", null, " ", " ", "  ", " ", " ", " ", " ", " ", null, "  ", false));
 
         assertThat(user.getFirstName()).isEqualTo(NEW);
         assertThat(user.getPhoneNumber()).isNull();
@@ -81,13 +88,13 @@ class UserAccountServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toUserResponse(user)).thenReturn(new UserResponse(
-                userId, user.getEmail(), "Reader", "User", null, null, null,
-                null, null, null, null, null, null, false, null, false,
+                userId, user.getEmail(), user.getUsername(), "Reader", "User", null,
+                null, null, null, null, null, null, null, null, false, null, false,
                 java.time.Instant.parse("2024-01-01T00:00:00Z"), false));
 
         userAccountService.updateProfile(
                 userId, new UpdateProfileRequest(
-                        null, null, null, null, null, null, null, null, null, null, null, null, false));
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, false));
 
         assertThat(user.isAcceptRecommendations()).isFalse();
     }

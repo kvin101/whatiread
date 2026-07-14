@@ -6,6 +6,7 @@ import java.util.UUID;
 public record AdminUserDto(
         UUID id,
         String email,
+        String username,
         String firstName,
         String lastName,
         String displayName,

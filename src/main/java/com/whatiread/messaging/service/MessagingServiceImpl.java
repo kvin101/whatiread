@@ -20,6 +20,8 @@ import com.whatiread.messaging.repository.ConversationRepository;
 import com.whatiread.messaging.repository.MessageMentionRepository;
 import com.whatiread.messaging.repository.MessageRepository;
 import com.whatiread.messaging.util.ConversationParticipants;
+import com.whatiread.messaging.util.MessageCursor;
+import com.whatiread.shared.api.CursorPage;
 import com.whatiread.shared.exception.ForbiddenException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.shelf.service.ShelfService;
@@ -178,6 +180,11 @@ public class MessagingServiceImpl implements MessagingService {
     public List<ConversationDto> listConversations(UUID userId) {
         return conversationRepository.findByParticipant(userId).stream()
                 .map(conversation -> toConversationDto(conversation, userId))
+                .sorted((left, right) -> {
+                    Instant leftAt = left.lastMessage() != null ? left.lastMessage().sentAt() : left.createdAt();
+                    Instant rightAt = right.lastMessage() != null ? right.lastMessage().sentAt() : right.createdAt();
+                    return rightAt.compareTo(leftAt);
+                })
                 .toList();
     }
 
@@ -190,20 +197,36 @@ public class MessagingServiceImpl implements MessagingService {
     }
 
     @Override
-    public List<MessageDto> listMessages(UUID userId, UUID conversationId, Instant before, int limit) {
+    @Transactional(readOnly = true)
+    public CursorPage<MessageDto> listMessages(UUID userId, UUID conversationId, String cursor, int limit) {
         Conversation conversation = getParticipantConversation(conversationId, userId);
         int pageSize = Math.min(Math.max(limit, 1), 100);
-        Pageable pageable = PageRequest.of(0, pageSize);
-        List<Message> messages = before == null
-                ? messageRepository.findLatestByConversation(conversation.getId(), pageable)
-                : messageRepository.findHistoryBefore(conversation.getId(), before, pageable);
-        List<MessageDto> dtos = new ArrayList<>(messages.size());
-        for (Message message : messages) {
+        Pageable pageable = PageRequest.of(0, pageSize + 1);
+        List<Message> messages;
+        if (cursor == null || cursor.isBlank()) {
+            messages = messageRepository.findLatestByConversation(conversation.getId(), pageable);
+        } else {
+            MessageCursor.Parts parts = MessageCursor.decode(cursor);
+            messages = messageRepository.findHistoryBeforeCursor(
+                    conversation.getId(),
+                    parts.sentAt(),
+                    parts.id(),
+                    pageable
+            );
+        }
+        boolean hasMore = messages.size() > pageSize;
+        List<Message> page = hasMore ? messages.subList(0, pageSize) : messages;
+        List<MessageDto> dtos = new ArrayList<>(page.size());
+        for (Message message : page) {
             dtos.add(toMessageDto(message));
         }
         Collections.reverse(dtos);
-        messageRepository.markAsReadForRecipient(conversation.getId(), userId, Instant.now());
-        return dtos;
+        String nextCursor = null;
+        if (hasMore && !page.isEmpty()) {
+            Message oldest = page.getLast();
+            nextCursor = MessageCursor.encode(oldest.getSentAt(), oldest.getId());
+        }
+        return new CursorPage<>(dtos, nextCursor, hasMore);
     }
 
     @Override
@@ -431,9 +454,7 @@ public class MessagingServiceImpl implements MessagingService {
 
     private void notifyParticipants(UUID senderId, Set<UUID> participantIds, MessageDto dto) {
         for (UUID participantId : participantIds) {
-            if (!participantId.equals(senderId)) {
-                messagingTemplate.convertAndSendToUser(participantId.toString(), "/queue/messages", dto);
-            }
+            messagingTemplate.convertAndSendToUser(participantId.toString(), "/queue/messages", dto);
         }
     }
 

@@ -1,6 +1,5 @@
 package com.whatiread.config;
 
-import java.util.Arrays;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,20 +10,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class CorsConfig {
 
-    private static List<String> splitOrigins(String origins) {
-        return Arrays.stream(origins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .toList();
-    }
-
     @Bean
     CorsConfigurationSource corsConfigurationSource(WhatIReadProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
         String origins = properties.cors() != null
                 ? properties.cors().allowedOrigins()
                 : "http://localhost:5173";
-        configuration.setAllowedOrigins(splitOrigins(origins));
+        configuration.setAllowedOrigins(CorsOrigins.split(origins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-user-username-column
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: username
+                  type: varchar(30)
+                  constraints:
+                    nullable: true
+  - changeSet:
+      id: 016-user-username-backfill
+      author: whatiread
+      changes:
+        - sql:
+            sql: UPDATE users SET username = SUBSTRING(LOWER(CONCAT('u', REPLACE(CAST(id AS VARCHAR), '-', ''))) FROM 1 FOR 30) WHERE username IS NULL
+            dbms: postgresql
+        - sql:
+            sql: UPDATE users SET username = SUBSTRING(LOWER(CONCAT('u', REPLACE(CAST(id AS VARCHAR), '-', ''))), 1, 30) WHERE username IS NULL
+            dbms: h2
+  - changeSet:
+      id: 016-user-username-constraints
+      author: whatiread
+      changes:
+        - addNotNullConstraint:
+            tableName: users
+            columnName: username
+            columnDataType: varchar(30)
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: username
+            constraintName: uk_users_username

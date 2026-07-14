@@ -38,6 +38,23 @@ public interface ShelfBookRepository extends JpaRepository<ShelfBook, ShelfBookI
 
     long countByShelf_Id(UUID shelfId);
 
+    @Query("""
+            SELECT sb.shelf.id AS shelfId, COUNT(sb) AS bookCount
+            FROM ShelfBook sb
+            WHERE sb.shelf.id IN :shelfIds
+            GROUP BY sb.shelf.id
+            """)
+    List<ShelfBookCountView> countBooksByShelfIds(@Param("shelfIds") Collection<UUID> shelfIds);
+
+    @Query("""
+            SELECT sb FROM ShelfBook sb
+            JOIN FETCH sb.userBook ub
+            JOIN FETCH ub.book b
+            WHERE sb.shelf.id = :shelfId
+            AND LOWER(TRIM(b.title)) = LOWER(TRIM(:title))
+            """)
+    List<ShelfBook> findByShelfIdAndBookTitle(@Param("shelfId") UUID shelfId, @Param("title") String title);
+
     @EntityGraph(attributePaths = {"shelf", "userBook"})
     @Query("SELECT sb FROM ShelfBook sb JOIN sb.userBook ub WHERE ub.book.id = :bookId")
     List<ShelfBook> findByBookId(@Param("bookId") UUID bookId);

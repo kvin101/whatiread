@@ -59,7 +59,7 @@ public class SecurityConfig {
                             new AuthorizationDecision(
                                     NetworkUtils.isInternalNetwork(context.getRequest().getRemoteAddr())
                             ));
-                    auth.requestMatchers(HttpMethod.GET, ApiPaths.BOOKS_SEARCH).permitAll();
+                    auth.requestMatchers(HttpMethod.GET, ApiPaths.BOOKS_SEARCH, ApiPaths.BOOKS_SUGGEST).permitAll();
                     auth.requestMatchers(HttpMethod.GET, ApiPaths.PUBLIC + "/**").permitAll();
                     auth.requestMatchers(ApiPaths.V1 + "/**").authenticated();
                     auth.anyRequest().denyAll();

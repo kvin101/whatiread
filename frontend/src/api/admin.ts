@@ -34,6 +34,14 @@ export const adminApi = {
     return apiFetch<void>(API_PATHS.admin.user(userId), { method: 'DELETE' })
   },
 
+  suggestUsers(query: string, limit = 8, signal?: AbortSignal) {
+    const params = new URLSearchParams({ q: query, limit: String(limit) })
+    return apiFetch<import('./types').AdminUserSuggestResult[]>(
+      `${API_PATHS.admin.usersSuggest}?${params}`,
+      { signal },
+    )
+  },
+
   setRegistrationEnabled(enabled: boolean) {
     return apiFetch<void>(API_PATHS.admin.registration, {
       method: 'PATCH',

@@ -1,3 +1,4 @@
+import { AlertTriangle, HelpCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Button } from './Button'
 import { Modal } from './Modal'
@@ -34,14 +35,30 @@ export function useConfirm() {
   const dialog =
     opts && open ? (
       <Modal open={open} onClose={() => close(false)} title={opts.title}>
-        <div className="space-y-6">
-          {opts.description && <p className="text-sm text-ink-muted leading-relaxed">{opts.description}</p>}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => close(false)}>
+        <div className="space-y-8">
+          <div className="flex gap-4">
+            <div
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                opts.variant === 'danger' ? 'bg-danger/15 text-danger' : 'bg-accent-dim text-accent'
+              }`}
+            >
+              {opts.variant === 'danger' ? (
+                <AlertTriangle className="h-6 w-6" />
+              ) : (
+                <HelpCircle className="h-6 w-6" />
+              )}
+            </div>
+            {opts.description && (
+              <p className="pt-1 text-base leading-relaxed text-ink-muted">{opts.description}</p>
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-3 border-t border-border/60 pt-6 sm:flex-row sm:justify-end">
+            <Button variant="secondary" className="sm:min-w-[7rem]" onClick={() => close(false)}>
               {opts.cancelLabel ?? copy.confirm.cancel}
             </Button>
             <Button
               variant={opts.variant === 'danger' ? 'danger' : 'primary'}
+              className="sm:min-w-[7rem]"
               onClick={() => close(true)}
             >
               {opts.confirmLabel ?? copy.confirm.delete}

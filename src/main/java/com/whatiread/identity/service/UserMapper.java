@@ -19,6 +19,7 @@ public class UserMapper {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getDisplayName(),
@@ -42,6 +43,7 @@ public class UserMapper {
         return new AdminUserDto(
                 user.getId(),
                 user.getEmail(),
+                user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getDisplayName(),

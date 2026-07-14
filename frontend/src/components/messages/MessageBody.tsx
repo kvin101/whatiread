@@ -29,9 +29,10 @@ export function MessageBody({
   const mentionClass = outgoing
     ? 'font-semibold underline underline-offset-2 text-void/90'
     : 'font-semibold underline underline-offset-2 text-accent'
+  const textClass = outgoing ? 'text-inherit' : 'panel-text'
 
   if (!mentions.length) {
-    return <span className="panel-text">{body}</span>
+    return <span className={textClass}>{body}</span>
   }
 
   const sorted = [...mentions].sort((a, b) => b.label.length - a.label.length)
@@ -70,5 +71,5 @@ export function MessageBody({
     remaining = remaining.slice(earliest + needle.length)
   }
 
-  return <span className="panel-text">{parts}</span>
+  return <span className={textClass}>{parts}</span>
 }

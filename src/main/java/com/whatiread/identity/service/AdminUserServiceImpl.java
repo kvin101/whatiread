@@ -7,6 +7,7 @@ import com.whatiread.identity.domain.User;
 import com.whatiread.identity.repository.RefreshTokenRepository;
 import com.whatiread.identity.repository.UserRepository;
 import com.whatiread.instance.service.InstanceSettingsService;
+import com.whatiread.identity.suggest.UserSearchIndexService;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
@@ -26,19 +27,25 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final InstanceSettingsService instanceSettingsService;
     private final UserMapper userMapper;
+    private final UsernameService usernameService;
+    private final UserSearchIndexService userSearchIndexService;
 
     public AdminUserServiceImpl(
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
             InstanceSettingsService instanceSettingsService,
-            UserMapper userMapper
+            UserMapper userMapper,
+            UsernameService usernameService,
+            UserSearchIndexService userSearchIndexService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.instanceSettingsService = instanceSettingsService;
         this.userMapper = userMapper;
+        this.usernameService = usernameService;
+        this.userSearchIndexService = userSearchIndexService;
     }
 
     private static String normalizeQuery(String query) {
@@ -65,13 +72,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ConflictException("Email already registered");
         }
+        String username = usernameService.normalizeAndValidate(request.username());
+        usernameService.requireAvailable(username);
         User user = new User(
                 email,
+                username,
                 passwordEncoder.encode(request.password()),
                 request.firstName().trim(),
                 request.lastName() != null ? request.lastName().trim() : null
         );
         userRepository.save(user);
+        usernameService.indexUsername(user.getUsername());
+        userSearchIndexService.syncUser(user);
         if (request.role() == AdminUserRole.ADMIN) {
             instanceSettingsService.setAdminUserId(user.getId());
         }
@@ -98,7 +110,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (!enabled) {
             refreshTokenRepository.deleteByUser_Id(userId);
         }
-        return userMapper.toAdminUserDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        userSearchIndexService.syncUser(saved);
+        return userMapper.toAdminUserDto(saved);
     }
 
     @Override
@@ -109,6 +123,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         refreshTokenRepository.deleteByUser_Id(userId);
         user.setDeleted(true);
         userRepository.save(user);
+        userSearchIndexService.removeUser(userId);
     }
 
     private User requireUser(UUID userId) {

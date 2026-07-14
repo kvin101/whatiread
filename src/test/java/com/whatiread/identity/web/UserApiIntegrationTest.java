@@ -48,6 +48,24 @@ class UserApiIntegrationTest extends AbstractApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.userId().toString()));
 
+        mockMvc.perform(get(ApiPaths.USERS + "/{userRef}/profile", user.username())
+                        .with(bearer(viewer.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(user.username()));
+
+        mockMvc.perform(get(ApiPaths.ME + "/username/available")
+                        .param("username", user.username())
+                        .with(bearer(user.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available").value(true));
+
+        String fresh = uniqueUsername();
+        mockMvc.perform(get(ApiPaths.ME + "/username/available")
+                        .param("username", fresh)
+                        .with(bearer(user.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available").value(true));
+
         mockMvc.perform(get(ApiPaths.USERS + "/{userId}/shelves", user.userId())
                         .with(bearer(viewer.accessToken())))
                 .andExpect(status().isOk())

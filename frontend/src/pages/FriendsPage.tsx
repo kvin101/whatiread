@@ -13,17 +13,19 @@ import {
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { friendsApi } from '../api/friends'
-import { ApiError } from '../api/client'
+import type { UserSuggestResult } from '../api/types'
 import { Button } from '../components/ui/Button'
+import { UserSuggestField } from '../components/users/UserSuggestField'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Input, Label } from '../components/ui/Input'
+import { Label } from '../components/ui/Input'
 import { copy } from '../lib/copy'
 import { displayName, initials } from '../lib/utils'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { getApiErrorMessage } from '../lib/api'
 
 function UserAvatar({
   name,
@@ -80,7 +82,8 @@ function RequestCard({
 export function FriendsPage() {
   const queryClient = useQueryClient()
   const { confirm, dialog } = useConfirm()
-  const [email, setEmail] = useState('')
+  const [query, setQuery] = useState('')
+  const [selectedUser, setSelectedUser] = useState<UserSuggestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const { data: friends = [], isLoading: friendsLoading } = useQuery({
@@ -108,13 +111,14 @@ export function FriendsPage() {
   }
 
   const sendMutation = useMutation({
-    mutationFn: () => friendsApi.sendRequest({ email }),
+    mutationFn: (userId: string) => friendsApi.sendRequest({ userId }),
     onSuccess: () => {
-      setEmail('')
+      setQuery('')
+      setSelectedUser(null)
       setError(null)
       invalidate()
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : 'Request bounced — double-check that email.'),
+    onError: (e) => setError(getApiErrorMessage(e, 'Request bounced — try another reader.')),
   })
 
   const acceptMutation = useMutation({
@@ -163,22 +167,26 @@ export function FriendsPage() {
       {!loading && (
         <>
           <section className="mt-8 rounded-2xl border border-border bg-paper-elevated p-6 shadow-sm list-enter">
-            <Label htmlFor="friendEmail">{copy.friends.inviteLabel}</Label>
+            <Label htmlFor="friendSearch">{copy.friends.inviteLabel}</Label>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="friendEmail"
-                type="email"
-                placeholder={copy.friends.invitePlaceholder}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && email.trim()) sendMutation.mutate()
+              <UserSuggestField
+                inputId="friendSearch"
+                value={query}
+                onValueChange={(value) => {
+                  setQuery(value)
+                  setSelectedUser(null)
                 }}
+                onSelect={(user) => {
+                  setSelectedUser(user)
+                  setQuery(user.displayName)
+                  sendMutation.mutate(user.id)
+                }}
+                placeholder={copy.friends.invitePlaceholder}
               />
               <Button
                 className="shrink-0"
-                disabled={!email.trim() || sendMutation.isPending}
-                onClick={() => sendMutation.mutate()}
+                disabled={!selectedUser || sendMutation.isPending}
+                onClick={() => selectedUser && sendMutation.mutate(selectedUser.id)}
               >
                 <UserPlus className="h-4 w-4" />
                 {copy.friends.send}

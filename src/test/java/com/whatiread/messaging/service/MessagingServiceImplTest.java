@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -115,9 +116,9 @@ class MessagingServiceImplTest {
         friendId = UUID.randomUUID();
         thirdId = UUID.randomUUID();
         conversationId = UUID.randomUUID();
-        userA = new User("a@example.com", HASH, "Alice", "A");
-        userB = new User("b@example.com", HASH, "Bob", "B");
-        userC = new User("c@example.com", HASH, "Carol", "C");
+        userA = new User("a@example.com", "alice", HASH, "Alice", "A");
+        userB = new User("b@example.com", "bob", HASH, "Bob", "B");
+        userC = new User("c@example.com", "carol", HASH, "Carol", "C");
         setId(userA, userId);
         setId(userB, friendId);
         setId(userC, thirdId);
@@ -153,7 +154,7 @@ class MessagingServiceImplTest {
     }
 
     @Test
-    void sendMessageNotifiesRecipient() {
+    void sendMessageNotifiesAllParticipantsIncludingSender() {
         when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
         when(friendshipService.areFriends(userId, friendId)).thenReturn(true);
         when(blockService.isBlockedEitherWay(userId, friendId)).thenReturn(false);
@@ -165,12 +166,13 @@ class MessagingServiceImplTest {
         var dto = messagingService.sendMessage(userId, conversationId, " hello ");
 
         assertThat(dto.body()).isEqualTo(HELLO);
+        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/messages"), any());
         verify(messagingTemplate).convertAndSendToUser(eq(friendId.toString()), eq("/queue/messages"), any());
         verify(businessMetrics).recordMessageSent();
     }
 
     @Test
-    void sendGroupMessageNotifiesAllOtherParticipants() {
+    void sendGroupMessageNotifiesAllParticipantsIncludingSender() {
         UUID groupId = groupConversation.getId();
         when(conversationRepository.findById(groupId)).thenReturn(Optional.of(groupConversation));
         when(participantRepository.existsByConversation_IdAndUser_Id(groupId, userId)).thenReturn(true);
@@ -182,6 +184,7 @@ class MessagingServiceImplTest {
 
         messagingService.sendMessage(userId, groupId, HELLO);
 
+        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/messages"), any());
         verify(messagingTemplate).convertAndSendToUser(eq(friendId.toString()), eq("/queue/messages"), any());
         verify(messagingTemplate).convertAndSendToUser(eq(thirdId.toString()), eq("/queue/messages"), any());
     }
@@ -267,7 +270,7 @@ class MessagingServiceImplTest {
     }
 
     @Test
-    void listMessagesMarksMessagesRead() {
+    void listMessagesDoesNotMarkMessagesRead() {
         when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
         Message message = new Message(conversation, userB, "hi");
         setId(message, UUID.randomUUID());
@@ -275,10 +278,10 @@ class MessagingServiceImplTest {
                 .thenReturn(List.of(message));
         when(messageMentionRepository.findByMessage_Id(any())).thenReturn(List.of());
 
-        var messages = messagingService.listMessages(userId, conversationId, null, 20);
+        var page = messagingService.listMessages(userId, conversationId, null, 20);
 
-        assertThat(messages).hasSize(1);
-        verify(messageRepository).markAsReadForRecipient(eq(conversationId), eq(userId), any(Instant.class));
+        assertThat(page.items()).hasSize(1);
+        verify(messageRepository, never()).markAsReadForRecipient(any(), any(), any());
     }
 
     @Test
@@ -394,16 +397,19 @@ class MessagingServiceImplTest {
     }
 
     @Test
-    void listMessagesUsesHistoryCursorWhenBeforeProvided() {
-        Instant before = Instant.parse("2024-06-01T00:00:00Z");
+    void listMessagesUsesHistoryCursorWhenCursorProvided() {
+        UUID messageId = UUID.randomUUID();
+        Instant sentAt = Instant.parse("2024-06-01T00:00:00Z");
+        String cursor = com.whatiread.messaging.util.MessageCursor.encode(sentAt, messageId);
         when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
         Message message = new Message(conversation, userB, "older");
         setId(message, UUID.randomUUID());
-        when(messageRepository.findHistoryBefore(eq(conversationId), eq(before), any(Pageable.class)))
+        when(messageRepository.findHistoryBeforeCursor(
+                eq(conversationId), eq(sentAt), eq(messageId), any(Pageable.class)))
                 .thenReturn(List.of(message));
         when(messageMentionRepository.findByMessage_Id(any())).thenReturn(List.of());
 
-        assertThat(messagingService.listMessages(userId, conversationId, before, 10)).hasSize(1);
+        assertThat(messagingService.listMessages(userId, conversationId, cursor, 10).items()).hasSize(1);
     }
 
     @Test

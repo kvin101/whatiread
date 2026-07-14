@@ -1,10 +1,11 @@
 import { apiFetch } from './client'
 import { API_PATHS } from './paths'
-import type { AuthResponse, User } from './types'
+import type { AuthResponse, User, UsernameAvailability } from './types'
 
 export const authApi = {
   register(body: {
     email: string
+    username: string
     password: string
     firstName: string
     lastName?: string
@@ -32,5 +33,12 @@ export const authApi = {
 
   me() {
     return apiFetch<User>(API_PATHS.me)
+  },
+
+  checkUsernameAvailable(username: string) {
+    const params = new URLSearchParams({ username })
+    return apiFetch<UsernameAvailability>(
+      `${API_PATHS.auth.usernameAvailable}?${params}`,
+    )
   },
 }
