@@ -1,6 +1,7 @@
 package com.whatiread.shelf.repository;
 
 import com.whatiread.shelf.domain.ShelfMember;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,8 @@ public interface ShelfMemberRepository extends JpaRepository<ShelfMember, UUID> 
     List<ShelfMember> findByUser_Id(UUID userId);
 
     Optional<ShelfMember> findByShelf_IdAndUser_Id(UUID shelfId, UUID userId);
+
+    List<ShelfMember> findByShelf_IdInAndUser_Id(Collection<UUID> shelfIds, UUID userId);
 
     @Query("""
             SELECT sm.shelf FROM ShelfMember sm

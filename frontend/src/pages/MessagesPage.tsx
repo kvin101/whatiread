@@ -55,8 +55,7 @@ export function MessagesPage() {
       const page = normalizeMessagingIds({ conversations: await conversationsApi.list() }).conversations ?? []
       return sortConversations(page)
     },
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   })
 
@@ -241,22 +240,21 @@ export function MessagesPage() {
   const typingLabel = typingParticipant ? displayName(typingParticipant) : 'Someone'
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
       <PageHeader
-        eyebrow="DMs"
         title={copy.messages.title}
-        description={
-          <span className="inline-flex items-center gap-2">
-            {copy.messages.description}
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-sage' : 'bg-border'}`}
-              title={connected ? 'Connected' : 'Connecting…'}
-            />
-          </span>
+        action={
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-sage' : 'bg-border'}`}
+            title={connected ? 'Connected' : 'Connecting…'}
+          />
         }
       />
 
-      <div className="flex h-[calc(100dvh-14rem)] min-h-[420px] overflow-hidden rounded-3xl chat-panel">
+      </div>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-3xl chat-panel">
         <aside
           className={`w-full max-w-xs shrink-0 border-r border-white/10 flex flex-col min-h-0 ${
             activeId ? 'hidden sm:flex' : 'flex'
@@ -299,6 +297,7 @@ export function MessagesPage() {
           participantsById={participantsById}
           peerTyping={peerTyping}
           typingLabel={typingLabel}
+          typingAvatarUrl={typingParticipant?.avatarUrl}
           hasOlderMessages={!!hasNextPage}
           loadingOlder={isFetchingNextPage}
           onLoadOlder={() => fetchNextPage()}

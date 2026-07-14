@@ -51,7 +51,7 @@ class PlatformSecurityIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void prometheusDeniedFromPublicNetwork() throws Exception {
         mockMvc.perform(get(WebPaths.ACTUATOR_PROMETHEUS).with(remoteAddr(PUBLIC_NETWORK_IP)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -63,7 +63,7 @@ class PlatformSecurityIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void infoDeniedFromPublicNetwork() throws Exception {
         mockMvc.perform(get(WebPaths.ACTUATOR_INFO).with(remoteAddr(PUBLIC_NETWORK_IP)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

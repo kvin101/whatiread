@@ -4,6 +4,7 @@ import type { Book, FriendSummary, RecommendationTargetType, Shelf, UserSuggestR
 import { copy } from '../../lib/copy'
 import { cn, displayName, formatAuthors, initials } from '../../lib/utils'
 import { BookCover } from '../books/BookCover'
+import { ShelfIcon } from '../shelves/ShelfIcon'
 import { UserSuggestField } from '../users/UserSuggestField'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
@@ -136,7 +137,7 @@ export function RecommendModal({
     <Modal open={open} onClose={onClose} title={copy.recommendations.modal.title}>
       <div className="space-y-5">
         <div>
-          <Label>Who gets peer-pressured?</Label>
+          <Label>Recommend to</Label>
           {selectedFriend ? (
             <div className="mt-2 flex items-center gap-3 rounded-2xl border border-accent/30 bg-accent-dim px-4 py-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sm font-semibold text-sage">
@@ -160,7 +161,7 @@ export function RecommendModal({
             <EmptyState
               icon={UserPlus}
               title="No friends yet"
-              description="Add friends first — then you can peer-pressure them about books."
+              description="Add friends first to send recommendations."
               className="mt-3 py-8"
             />
           ) : (
@@ -251,9 +252,9 @@ export function RecommendModal({
 
             {targetType === 'BOOK' ? (
               <div>
-                <Label>Which books from your pile?</Label>
+                <Label>Books from your library</Label>
                 <p className="mt-1 text-xs text-ink-muted">
-                  Pick one or more — same pitch goes to all of them.
+                  Select one or more books to recommend.
                 </p>
 
                 {selectedBooks.length > 0 && (
@@ -290,7 +291,7 @@ export function RecommendModal({
                 </div>
 
                 {libraryLoading && availableBooks.length === 0 ? (
-                  <p className="mt-3 text-sm text-ink-muted">Loading your pile…</p>
+                  <p className="mt-3 text-sm text-ink-muted">Loading books…</p>
                 ) : availableBooks.length === 0 ? (
                   <EmptyState
                     icon={BookOpen}
@@ -349,8 +350,8 @@ export function RecommendModal({
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {selectedShelves.map((shelf) => (
                       <li key={shelf.id}>
-                        <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/30 bg-accent-dim py-1 pl-2 pr-2 text-sm text-ink">
-                          <span className="text-base">{shelf.icon ?? '📚'}</span>
+                        <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-accent/30 bg-accent-dim py-1 pl-1.5 pr-2 text-sm text-ink">
+                          <ShelfIcon icon={shelf.icon} size="sm" className="h-7 w-7 rounded-lg" />
                           <span className="truncate max-w-[10rem] font-medium">{shelf.name}</span>
                           <button
                             type="button"
@@ -403,9 +404,7 @@ export function RecommendModal({
                           onClick={() => addShelf(shelf)}
                           className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition-colors hover:border-accent/30 hover:bg-accent-dim disabled:opacity-50"
                         >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-dim text-xl">
-                            {shelf.icon ?? '📚'}
-                          </span>
+                          <ShelfIcon icon={shelf.icon} size="sm" />
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-ink">{shelf.name}</p>
                             <p className="truncate text-xs text-ink-muted">
@@ -424,7 +423,7 @@ export function RecommendModal({
 
         {selectedFriend && selectionCount > 0 && (
           <div>
-            <Label>Your pitch (optional but helps)</Label>
+            <Label>Message (optional)</Label>
             <Textarea
               className="mt-1"
               rows={2}

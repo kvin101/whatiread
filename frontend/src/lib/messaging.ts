@@ -48,6 +48,11 @@ export function normalizeConversations(raw: Conversation[]): Conversation[] {
   }))
 }
 
+export function conversationAvatarUrl(conversation: Conversation): string | null | undefined {
+  if (conversation.type === 'GROUP') return undefined
+  return conversation.otherParticipant?.avatarUrl
+}
+
 export function conversationTitle(conversation: Conversation): string {
   if (conversation.type === 'GROUP') {
     return conversation.name?.trim() || 'Group chat'

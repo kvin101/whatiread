@@ -6,6 +6,7 @@ import com.whatiread.identity.api.AdminUserRole;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.repository.RefreshTokenRepository;
 import com.whatiread.identity.repository.UserRepository;
+import com.whatiread.identity.security.AuthPrincipalCache;
 import com.whatiread.instance.service.InstanceSettingsService;
 import com.whatiread.identity.suggest.UserSearchIndexService;
 import com.whatiread.shared.exception.ConflictException;
@@ -29,6 +30,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final UserMapper userMapper;
     private final UsernameService usernameService;
     private final UserSearchIndexService userSearchIndexService;
+    private final AuthPrincipalCache authPrincipalCache;
 
     public AdminUserServiceImpl(
             UserRepository userRepository,
@@ -37,7 +39,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             InstanceSettingsService instanceSettingsService,
             UserMapper userMapper,
             UsernameService usernameService,
-            UserSearchIndexService userSearchIndexService
+            UserSearchIndexService userSearchIndexService,
+            AuthPrincipalCache authPrincipalCache
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -46,6 +49,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         this.userMapper = userMapper;
         this.usernameService = usernameService;
         this.userSearchIndexService = userSearchIndexService;
+        this.authPrincipalCache = authPrincipalCache;
     }
 
     private static String normalizeQuery(String query) {
@@ -96,6 +100,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.incrementTokenVersion();
         refreshTokenRepository.deleteByUser_Id(userId);
+        authPrincipalCache.invalidate(userId);
         return userMapper.toAdminUserDto(userRepository.save(user));
     }
 
@@ -110,6 +115,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (!enabled) {
             refreshTokenRepository.deleteByUser_Id(userId);
         }
+        authPrincipalCache.invalidate(userId);
         User saved = userRepository.save(user);
         userSearchIndexService.syncUser(saved);
         return userMapper.toAdminUserDto(saved);
@@ -123,6 +129,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         refreshTokenRepository.deleteByUser_Id(userId);
         user.setDeleted(true);
         userRepository.save(user);
+        authPrincipalCache.invalidate(userId);
         userSearchIndexService.removeUser(userId);
     }
 

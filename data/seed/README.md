@@ -18,3 +18,5 @@ cp data/seed/book-suggest.json src/main/resources/book-suggest/book-suggest.json
 docker volume rm whatiread_meilisearch_data
 docker compose up --build -d
 ```
+
+Meilisearch must be running for book suggest in production (`MEILISEARCH_ENABLED=true`). Local `docker compose` includes the Meilisearch service automatically.

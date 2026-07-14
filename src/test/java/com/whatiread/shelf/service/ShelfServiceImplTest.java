@@ -51,7 +51,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -91,6 +90,7 @@ class ShelfServiceImplTest {
     private UserLookupService userLookupService;
     @Mock
     private LibraryService libraryService;
+    private ShelfBookQueryService shelfBookQueryService;
     @Mock
     private UserBookPersistencePort userBookPersistencePort;
     @Mock
@@ -102,15 +102,11 @@ class ShelfServiceImplTest {
     @Mock
     private ShelfCloneService shelfCloneService;
     @Mock
-    private ExploreShelfReadModelService exploreShelfReadModelService;
-    @Mock
     private BusinessMetrics businessMetrics;
     @Mock
     private CacheManager cacheManager;
     @Mock
     private Cache cache;
-
-    @InjectMocks
     private ShelfServiceImpl shelfService;
 
     private UUID userId;
@@ -165,6 +161,23 @@ class ShelfServiceImplTest {
         shelf = new Shelf(owner, READING_LIST_2, READING_LIST);
         setId(shelf, shelfId);
         shelf.setVisibility(ShelfVisibility.PRIVATE);
+        shelfBookQueryService = new ShelfBookQueryService(shelfBookRepository, libraryService);
+        shelfService = new ShelfServiceImpl(
+                shelfRepository,
+                shelfMemberRepository,
+                shelfBookRepository,
+                shelfShareLinkRepository,
+                userLookupService,
+                libraryService,
+                shelfBookQueryService,
+                userBookPersistencePort,
+                shelfCloneService,
+                shelfAccessService,
+                friendshipService,
+                shelfEventService,
+                businessMetrics,
+                cacheManager
+        );
     }
 
     @Test
@@ -186,7 +199,6 @@ class ShelfServiceImplTest {
         assertThat(created.name()).isEqualTo(READING_LIST_2);
         verify(shelfMemberRepository).save(any());
         verify(businessMetrics).recordShelfCreated();
-        verify(exploreShelfReadModelService).sync(any(Shelf.class));
     }
 
     @Test
@@ -239,14 +251,13 @@ class ShelfServiceImplTest {
     }
 
     @Test
-    void deleteRequiresOwnerAndRemovesExploreModel() {
+    void deleteRequiresOwner() {
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
         when(cacheManager.getCache(CacheConfig.PUBLIC_SHELF)).thenReturn(cache);
 
         shelfService.delete(userId, shelfId);
 
         verify(shelfRepository).delete(shelf);
-        verify(exploreShelfReadModelService).remove(shelfId);
     }
 
     @Test
@@ -282,8 +293,8 @@ class ShelfServiceImplTest {
         when(friendshipService.listFriendIds(userId)).thenReturn(List.of());
         when(shelfRepository.findExploreFeed(eq(userId), eq(0), eq(List.of()), any()))
                 .thenReturn(new PageImpl<>(List.of(shelf)));
-        when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelfId, userId))
-                .thenReturn(Optional.of(new ShelfMember(shelf, owner, ShelfMemberRole.EDITOR, userId)));
+        when(shelfMemberRepository.findByShelf_IdInAndUser_Id(List.of(shelfId), userId))
+                .thenReturn(List.of(new ShelfMember(shelf, owner, ShelfMemberRole.EDITOR, userId)));
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(1L);
 
         Page<?> feed = shelfService.exploreFeed(userId, PageRequest.of(0, 10));
@@ -387,9 +398,11 @@ class ShelfServiceImplTest {
         ShelfBook shelfBook = new ShelfBook(shelf, userBook, 0, userId);
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
         when(shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId)).thenReturn(List.of(shelfBook));
-        when(libraryService.get(userId, userBook.getId())).thenReturn(userBookDto(userBook.getId(), userBook.getBook()));
+        when(libraryService.listByIds(userId, List.of(userBook.getId())))
+                .thenReturn(List.of(userBookDto(userBook.getId(), userBook.getBook())));
 
         assertThat(shelfService.listBooks(userId, shelfId)).hasSize(1);
+        verify(libraryService, never()).listAllForUser(any());
     }
 
     @Test
@@ -463,7 +476,7 @@ class ShelfServiceImplTest {
         when(friendshipService.listFriendIds(userId)).thenReturn(List.of());
         when(shelfRepository.findExploreFeed(eq(userId), eq(0), eq(List.of()), any()))
                 .thenReturn(new PageImpl<>(List.of(shelf)));
-        when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelfId, userId)).thenReturn(Optional.empty());
+        when(shelfMemberRepository.findByShelf_IdInAndUser_Id(List.of(shelfId), userId)).thenReturn(List.of());
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
         Page<?> feed = shelfService.exploreFeed(userId, PageRequest.of(0, 10));
@@ -846,7 +859,7 @@ class ShelfServiceImplTest {
         when(friendshipService.listFriendIds(userId)).thenReturn(List.of());
         when(shelfRepository.findExploreFeed(eq(userId), eq(0), eq(List.of()), any()))
                 .thenReturn(new PageImpl<>(List.of(shelf)));
-        when(shelfMemberRepository.findByShelf_IdAndUser_Id(shelfId, userId)).thenReturn(Optional.empty());
+        when(shelfMemberRepository.findByShelf_IdInAndUser_Id(List.of(shelfId), userId)).thenReturn(List.of());
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
         Page<?> feed = shelfService.exploreFeed(userId, PageRequest.of(0, 10));
@@ -942,11 +955,13 @@ class ShelfServiceImplTest {
         ShelfBook shelfBook = new ShelfBook(shelf, userBook, 0, userId);
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
         when(shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId)).thenReturn(List.of(shelfBook));
-        when(libraryService.getSharedView(userId, userBook.getId()))
-                .thenReturn(userBookDto(userBook.getId(), userBook.getBook()));
+        when(libraryService.listByIds(userId, List.of(userBook.getId())))
+                .thenReturn(List.of(userBookDto(userBook.getId(), userBook.getBook())));
 
         assertThat(shelfService.listBooks(viewerId, shelfId)).hasSize(1);
         verify(libraryService, never()).get(viewerId, userBook.getId());
+        verify(libraryService, never()).getSharedView(userId, userBook.getId());
+        verify(libraryService, never()).listAllForUser(any());
     }
 
     @Test

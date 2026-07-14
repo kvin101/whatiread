@@ -4,6 +4,7 @@ import type { Recommendation } from '../../api/types'
 import { APP_ROUTES } from '../../api/paths'
 import { displayName, formatAuthors } from '../../lib/utils'
 import { BookCover } from '../books/BookCover'
+import { ShelfIcon } from '../shelves/ShelfIcon'
 import { Button } from '../ui/Button'
 
 type RecommendationCardProps = {
@@ -40,10 +41,10 @@ export function RecommendationCard({
         {isShelf ? (
           <Link
             to={APP_ROUTES.shelf(rec.shelf!.id)}
-            className="flex h-16 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-dim text-2xl ring-1 ring-accent/20 transition-colors hover:ring-accent/40"
+            className="shrink-0 transition-opacity hover:opacity-90"
             aria-label={rec.shelf!.name}
           >
-            {rec.shelf!.icon ?? '📚'}
+            <ShelfIcon icon={rec.shelf!.icon} size="md" />
           </Link>
         ) : rec.book ? (
           <BookCover title={rec.book.title} coverUrl={rec.book.coverUrl} size="sm" />

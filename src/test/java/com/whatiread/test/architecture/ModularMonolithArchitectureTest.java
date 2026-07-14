@@ -25,17 +25,9 @@ class ModularMonolithArchitectureTest {
             "..messaging.repository..",
             "..social.repository..",
             "..comment.repository..",
-            "..goal.repository..",
             "..recommendation.repository..",
-            "..importexport.repository..",
             "..instance.repository.."
     };
-
-    @ArchTest
-    static final ArchRule goalMustNotUseForeignRepositories = noCrossModuleRepoAccess(
-            "..goal..",
-            "..goal.repository.."
-    );
 
     @ArchTest
     static final ArchRule commentMustNotUseForeignRepositories = noCrossModuleRepoAccess(
@@ -47,12 +39,6 @@ class ModularMonolithArchitectureTest {
     static final ArchRule messagingMustNotUseForeignRepositories = noCrossModuleRepoAccess(
             "..messaging..",
             "..messaging.repository.."
-    );
-
-    @ArchTest
-    static final ArchRule importexportMustNotUseForeignRepositories = noCrossModuleRepoAccess(
-            "..importexport..",
-            "..importexport.repository.."
     );
 
     @ArchTest

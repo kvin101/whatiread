@@ -8,7 +8,9 @@ import com.whatiread.library.api.UserBookDto;
 import com.whatiread.library.api.UserBookNoteDto;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.shared.api.CursorPage;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +57,15 @@ public interface LibraryService {
 
     boolean hasBook(UUID userId, UUID bookId);
 
-    int countBooksReadInYear(UUID userId, short year);
+    /**
+     * Returns the subset of candidate book IDs already present in the user's library.
+     */
+    Set<UUID> ownedBookIdsAmong(UUID userId, Collection<UUID> bookIds);
+
+    /**
+     * Batch fetch for shelf book listings; omits private notes.
+     */
+    List<UserBookDto> listByIds(UUID userId, java.util.Collection<UUID> userBookIds);
 
     List<UserBookDto> listAllForUser(UUID userId);
 

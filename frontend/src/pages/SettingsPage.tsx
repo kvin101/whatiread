@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, User } from 'lucide-react'
+import { ExternalLink, Shield, SlidersHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { accountApi } from '../api/account'
@@ -13,9 +13,21 @@ import { useUsernameAvailability } from '../hooks/useUsernameAvailability'
 import { Button } from '../components/ui/Button'
 import { Input, Label } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
+import { PageHeader } from '../components/layout/PageHeader'
 import { copy } from '../lib/copy'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { ScrollablePage } from '../components/layout/ScrollablePage'
+import { displayName } from '../lib/utils'
+
+function FieldGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</h3>
+      {children}
+    </div>
+  )
+}
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
@@ -34,6 +46,7 @@ export function SettingsPage() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [registrationError, setRegistrationError] = useState<string | null>(null)
   const usernameCheck = useUsernameAvailability(profileForm.username, { currentUser: true })
+  const name = user ? displayName(user) : ''
 
   const { data: setup } = useQuery({
     queryKey: QUERY_KEYS.setup.required,
@@ -96,139 +109,159 @@ export function SettingsPage() {
   })
 
   return (
-    <div className="mx-auto max-w-3xl space-y-12">
-      <header className="animate-slide-up">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">You</p>
-        <h1 className="font-display text-3xl font-bold text-ink md:text-4xl">{copy.settings.title}</h1>
-        <p className="mt-2 text-base text-ink-muted">{copy.settings.description}</p>
-      </header>
+    <ScrollablePage>
+      <div className="mx-auto max-w-2xl space-y-5">
+        <PageHeader
+          title={copy.settings.title}
+          action={
+            user?.id ? (
+              <Link
+                to={APP_ROUTES.userProfile(user.id)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Public profile
+              </Link>
+            ) : undefined
+          }
+        />
 
-      <section className="manga-panel halftone-overlay space-y-8 rounded-2xl p-8">
-        <div className="flex items-center gap-3">
-          <User className="h-5 w-5 text-accent" />
-          <h2 className="section-header-manga">Your profile</h2>
-        </div>
+        <section className="rounded-xl border border-white/10 bg-paper-elevated/40 p-4 md:p-5 space-y-5">
+          <div className="flex items-center gap-4 border-b border-white/8 pb-4">
+            <ProfileAvatarUpload compact />
+            <div className="min-w-0">
+              <p className="font-semibold text-ink truncate">{name}</p>
+              {user?.username && <p className="text-sm text-ink-muted">@{user.username}</p>}
+              <p className="text-sm text-ink-muted truncate">{user?.email}</p>
+            </div>
+          </div>
 
-        <ProfileAvatarUpload />
+          <FieldGroup title="Profile">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, username: e.target.value }))}
+                  minLength={3}
+                  maxLength={30}
+                  pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
+                />
+                <UsernameAvailabilityHint value={profileForm.username} check={usernameCheck} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, firstName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, lastName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  rows={3}
+                  placeholder="About your reading…"
+                  value={profileForm.writerBio}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, writerBio: e.target.value }))}
+                />
+              </div>
+            </div>
+          </FieldGroup>
 
-        <div className="space-y-1 border-t border-border/60 pt-6">
-          <p className="text-sm text-ink-muted">{user?.email}</p>
-          {user?.username && <p className="text-sm text-ink-muted">@{user.username}</p>}
-        </div>
+          <FieldGroup title="Location & contact">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={profileForm.city}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={profileForm.country}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, country: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={profileForm.phoneNumber}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, phoneNumber: e.target.value }))}
+                />
+                <p className="text-xs text-ink-muted">Not shown on your public profile.</p>
+              </div>
+            </div>
+          </FieldGroup>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              value={profileForm.username}
-              onChange={(e) => setProfileForm((f) => ({ ...f, username: e.target.value }))}
-              minLength={3}
-              maxLength={30}
-              pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
-            />
-            <UsernameAvailabilityHint value={profileForm.username} check={usernameCheck} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First name</Label>
-            <Input
-              id="firstName"
-              value={profileForm.firstName}
-              onChange={(e) => setProfileForm((f) => ({ ...f, firstName: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last name</Label>
-            <Input
-              id="lastName"
-              value={profileForm.lastName}
-              onChange={(e) => setProfileForm((f) => ({ ...f, lastName: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={profileForm.phoneNumber}
-              onChange={(e) => setProfileForm((f) => ({ ...f, phoneNumber: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              value={profileForm.city}
-              onChange={(e) => setProfileForm((f) => ({ ...f, city: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="country">Country</Label>
-            <Input
-              id="country"
-              value={profileForm.country}
-              onChange={(e) => setProfileForm((f) => ({ ...f, country: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="bio">Bio (optional)</Label>
-            <Textarea
-              id="bio"
-              rows={4}
-              value={profileForm.writerBio}
-              onChange={(e) => setProfileForm((f) => ({ ...f, writerBio: e.target.value }))}
-            />
-          </div>
-        </div>
+          <FieldGroup title="Preferences">
+            <label className="flex items-start gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={acceptRecommendations}
+                onChange={(e) => setAcceptRecommendations(e.target.checked)}
+              />
+              <span>Accept recommendations from friends</span>
+            </label>
+          </FieldGroup>
 
-        <label className="flex items-center gap-3 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={acceptRecommendations}
-            onChange={(e) => setAcceptRecommendations(e.target.checked)}
-          />
-          Accept recommendations from friends
-        </label>
-
-        <div className="flex items-center gap-3 pt-2">
-          <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
-            Save profile
-          </Button>
-          {profileSaved && <span className="text-sm text-sage">Profile saved</span>}
-        </div>
-      </section>
-
-      {user?.admin && (
-        <section className="manga-panel halftone-overlay space-y-5 rounded-2xl p-8">
-          <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-accent" />
-            <h2 className="section-header-manga">{copy.settings.admin.title}</h2>
+          <div className="flex items-center gap-3 pt-1">
+            <Button size="sm" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
+              <SlidersHorizontal className="h-4 w-4" />
+              Save changes
+            </Button>
+            {profileSaved && <span className="text-sm text-sage">Saved</span>}
           </div>
-          <p className="text-sm leading-relaxed text-ink-muted">{copy.settings.admin.description}</p>
-          <p className="text-sm leading-relaxed text-ink-muted">
-            {registrationEnabled
-              ? copy.settings.admin.registrationOn
-              : copy.settings.admin.registrationOff}
-          </p>
-          <label className="flex items-center gap-3 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={registrationEnabled}
-              disabled={registrationMutation.isPending}
-              onChange={(e) => {
-                const enabled = e.target.checked
-                setRegistrationEnabled(enabled)
-                registrationMutation.mutate(enabled)
-              }}
-            />
-            {copy.settings.admin.registrationLabel}
-          </label>
-          {registrationError && <p className="text-sm text-danger">{registrationError}</p>}
-          <Link to={APP_ROUTES.adminUsers}>
-            <Button variant="secondary">{copy.settings.admin.manageUsers}</Button>
-          </Link>
         </section>
-      )}
-    </div>
+
+        {user?.admin && (
+          <section className="rounded-xl border border-white/10 bg-paper-elevated/40 p-4 md:p-5 space-y-4">
+            <h2 className="font-display text-base font-semibold text-ink">{copy.settings.admin.title}</h2>
+            <p className="text-sm text-ink-muted">
+              {registrationEnabled
+                ? copy.settings.admin.registrationOn
+                : copy.settings.admin.registrationOff}
+            </p>
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={registrationEnabled}
+                disabled={registrationMutation.isPending}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setRegistrationEnabled(enabled)
+                  registrationMutation.mutate(enabled)
+                }}
+              />
+              {copy.settings.admin.registrationLabel}
+            </label>
+            {registrationError && <p className="text-sm text-danger">{registrationError}</p>}
+            <Link to={APP_ROUTES.adminUsers}>
+              <Button size="sm" variant="secondary">
+                <Shield className="h-4 w-4" />
+                {copy.settings.admin.manageUsers}
+              </Button>
+            </Link>
+          </section>
+        )}
+      </div>
+    </ScrollablePage>
   )
 }

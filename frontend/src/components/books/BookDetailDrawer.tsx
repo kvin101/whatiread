@@ -17,6 +17,7 @@ import { Textarea } from '../ui/Textarea'
 import { BookCover } from './BookCover'
 import { StarRating } from './StarRating'
 import { getApiErrorMessage } from '../../lib/api'
+import { setQueryData } from '../../lib/queryCache'
 
 const STATUSES: ReadingStatus[] = ['TO_READ', 'READING', 'READ', 'DNF']
 
@@ -88,12 +89,10 @@ export function BookDetailDrawer({
     mutationFn: (body: Parameters<typeof libraryApi.update>[1]) =>
       libraryApi.update(activeUserBookId!, body),
     onSuccess: (updated) => {
-      queryClient.setQueryData(QUERY_KEYS.library.detail(activeUserBookId!), updated)
+      setQueryData(queryClient, QUERY_KEYS.library.detail(activeUserBookId!), updated)
       if (bookId) {
-        queryClient.setQueryData(QUERY_KEYS.library.byBook(bookId!), updated)
+        setQueryData(queryClient, QUERY_KEYS.library.byBook(bookId!), updated)
       }
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shelves.all })
       onUpdated?.()
       setError(null)
     },
@@ -109,9 +108,8 @@ export function BookDetailDrawer({
       return libraryApi.update(added.id, { rating })
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(QUERY_KEYS.library.byBook(bookId!), updated)
-      queryClient.setQueryData(QUERY_KEYS.library.detail(updated.id), updated)
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
+      setQueryData(queryClient, QUERY_KEYS.library.byBook(bookId!), updated)
+      setQueryData(queryClient, QUERY_KEYS.library.detail(updated.id), updated)
       refetchMyByBook()
       onUpdated?.()
       setError(null)
@@ -128,9 +126,9 @@ export function BookDetailDrawer({
   const deleteMutation = useMutation({
     mutationFn: () => libraryApi.remove(activeUserBookId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.library.detail(activeUserBookId!), exact: true })
       if (bookId) {
-        queryClient.removeQueries({ queryKey: QUERY_KEYS.library.byBook(bookId) })
+        queryClient.removeQueries({ queryKey: QUERY_KEYS.library.byBook(bookId), exact: true })
       }
       onDeleted?.()
       onClose()
@@ -141,9 +139,8 @@ export function BookDetailDrawer({
     mutationFn: () =>
       libraryApi.add({ bookId: viewEntry!.book.id, status: 'TO_READ' }),
     onSuccess: (added) => {
-      queryClient.setQueryData(QUERY_KEYS.library.byBook(viewEntry!.book.id), added)
-      queryClient.setQueryData(QUERY_KEYS.library.detail(added.id), added)
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
+      setQueryData(queryClient, QUERY_KEYS.library.byBook(viewEntry!.book.id), added)
+      setQueryData(queryClient, QUERY_KEYS.library.detail(added.id), added)
       refetchMyByBook()
       setError(null)
     },
@@ -336,6 +333,7 @@ export function BookDetailDrawer({
                           libraryApi.deleteNote(activeUserBookId!, note.id).then(() => {
                             queryClient.invalidateQueries({
                               queryKey: QUERY_KEYS.library.detail(activeUserBookId!),
+                              exact: true,
                             })
                           })
                         }}

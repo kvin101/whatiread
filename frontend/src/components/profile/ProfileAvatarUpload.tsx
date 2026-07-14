@@ -9,7 +9,7 @@ import { displayName } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { UserAvatar } from '../ui/UserAvatar'
 
-export function ProfileAvatarUpload() {
+export function ProfileAvatarUpload({ compact = false }: { compact?: boolean }) {
   const { user, refreshUser } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +49,48 @@ export function ProfileAvatarUpload() {
   }
 
   const busy = uploadMutation.isPending || removeMutation.isPending
+
+  if (compact) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <UserAvatar name={name} avatarUrl={user?.avatarUrl} size="xl" />
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Camera className="h-4 w-4" />
+            Change
+          </Button>
+          {user?.avatarUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => removeMutation.mutate()}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {error && <p className="text-xs text-danger text-center">{error}</p>}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={(e) => {
+            onFile(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

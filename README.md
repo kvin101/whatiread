@@ -5,15 +5,21 @@ Minimal FOSS virtual bookshelf — self-hosted on your own hardware. Track readi
 
 **License:** [AGPL-3.0](./LICENSE)
 
-## Features (planned)
+## Implemented features
 
-- Personal reading tracker (To Read / Reading / Read / DNF)
-- Custom shelves and tags
-- Visual 2D bookshelf UI
-- Goodreads CSV import / data export
-- No telemetry, no ads, no algorithmic feed
+- Personal reading tracker (To Read / Reading / Read / DNF) with ratings, notes, and progress
+- Custom shelves (private, friends-only, public) with sharing and explore feed
+- Friends, friend requests, and direct + group messaging (STOMP/WebSocket)
+- Book and user recommendations with accept/dismiss flows
+- Comments on shelves and library entries
+- Book search (Google Books) and **autocomplete** (Meilisearch book + user suggest)
+- Book preview popover (Open Library)
+- Usernames with bloom-filter availability checks
+- Profile avatars (upload, serve, persistent volume in Docker)
+- Instance setup wizard and admin user management
+- Tiered API rate limiting and observability stack (optional Docker profile)
 
-See [documents/features.md](./documents/features.md), [priorities.md](./documents/priorities.md), and [plan.md](./documents/plan.md).
+**Not shipped:** Goodreads CSV import, data export, and reading goals (removed from codebase).
 
 ## Quick start (local dev)
 
@@ -28,46 +34,31 @@ Requirements: Java 21, Maven (or `./mvnw`).
 - OpenAPI: http://localhost:8080/swagger-ui.html
 - H2 console (dev only): http://localhost:8080/h2-console
 
+Frontend (separate terminal):
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+See [frontend/README.md](./frontend/README.md).
+
 ## Quick start (Docker / self-host)
 
 ```bash
 cp .env.example .env
-# Edit .env — set POSTGRES_PASSWORD and JWT_SECRET (min 32 chars)
+# Edit .env — set POSTGRES_PASSWORD, JWT_SECRET (min 32 chars), MEILISEARCH_MASTER_KEY
 
 docker compose up --build
 ```
 
+Meilisearch is included in `docker-compose.yml` for book/user suggest. Production stacks (`docker-prod-compose.yml`, `docker-selfhost-compose.yml`) also include Meilisearch and a persistent `avatars-data` volume.
+
 ### Rebuild Docker images
 
-From the repo root (after editing `.env` if needed):
-
 ```bash
-# Rebuild API + web and restart the stack (db image is pulled, not built)
 docker compose up --build -d
-
-# Force a clean rebuild (no layer cache)
-docker compose build --no-cache
-docker compose up -d
-
-# Rebuild one service only
-docker compose build api
-docker compose build web
+docker compose build --no-cache   # force clean rebuild
 ```
-
-Build images without starting containers:
-
-```bash
-docker compose build
-```
-
-Rebuild with plain `docker build` (same contexts as compose):
-
-```bash
-docker build -t whatiread-api:latest -f Dockerfile .
-docker build -t whatiread-web:latest -f frontend/Dockerfile ./frontend
-```
-
-Optional: set `IMAGE_TAG` in `.env` (e.g. `IMAGE_TAG=2026-06-14`); compose tags images as `whatiread-api:${IMAGE_TAG}` and `whatiread-web:${IMAGE_TAG}`.
 
 ## Configuration
 
@@ -75,80 +66,84 @@ Optional: set `IMAGE_TAG` in `.env` (e.g. `IMAGE_TAG=2026-06-14`); compose tags 
 |----------|---------|-------------|
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/whatiread` | JDBC URL |
 | `DATABASE_USERNAME` | `whatiread` | DB user |
-| `DATABASE_PASSWORD` | `whatiread` (local only) | DB password — **required** in `prod` (no default) |
+| `DATABASE_PASSWORD` | `whatiread` (local only) | DB password — **required** in `prod` |
 | `JWT_SECRET` | *(required)* | HMAC secret, min 32 characters |
 | `REGISTRATION_ENABLED` | `true` (local), `false` (Docker prod) | Allow new user registration |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated SPA origins |
 | `GOOGLE_BOOKS_API_KEY` | *(empty)* | Optional metadata fallback |
-| `RATE_LIMIT_ENABLED` | `true` | Enable tiered per-IP rate limiting (Resilience4j) |
-| `OTEL_TAIL_SAMPLING_NORMAL_PERCENT` | `5` | Collector fallback sample rate for non-critical traces (%) |
-| `OTEL_TAIL_SAMPLING_CRITICAL_PERCENT` | `50` | Collector sample rate for auth/messaging/import/export (%) |
-| `OTEL_TAIL_SAMPLING_SLOW_MS` | `2000` | Collector keeps traces slower than this (ms) |
-| `OTEL_TAIL_SAMPLING_DECISION_WAIT` | `10s` | Collector tail-sampling decision window |
+| `MEILISEARCH_ENABLED` | `true` | Enable suggest indexes |
+| `MEILISEARCH_HOST` | `http://meilisearch:7700` | Meilisearch URL (compose) |
+| `MEILISEARCH_MASTER_KEY` | *(required in prod)* | Meilisearch master key |
+| `WHATIREAD_AVATARS_DIRECTORY` | `/data/avatars` | Avatar file storage path |
+| `RATE_LIMIT_ENABLED` | `true` | Enable tiered per-IP rate limiting |
 
 ### Trace sampling
 
-The API exports **all spans** (`management.tracing.sampling.probability` defaults to `1.0` in every profile). Sampling happens in the **OTel collector** via tail-based policies: always keep errors, HTTP 4xx/5xx, and slow traces; higher rates for auth/messaging/import/export; drop actuator paths; probabilistic fallback for everything else.
+The API exports **all spans** (`management.tracing.sampling.probability` defaults to `1.0`). Sampling happens in the **OTel collector** via tail-based policies: always keep errors, HTTP 4xx/5xx, and slow traces; higher rates for auth/messaging; drop actuator paths.
 
 | Layer | Behavior | Config |
 |-------|----------|--------|
 | API (local + prod) | Export 100% of spans | `application.yaml` / `application-prod.yaml` |
 | OTel collector | Tail sampling before Jaeger | `docker/otel/otel-collector-config.yml` + `.env` |
 
-Tune collector rates with `OTEL_TAIL_SAMPLING_*` in `.env`. Do **not** set `OTEL_TRACES_SAMPLER` / `OTEL_TRACES_SAMPLER_ARG` on the API.
-
-Jaeger UI (Docker stack): http://localhost:16686
+Tune collector rates with `OTEL_TAIL_SAMPLING_*` in `.env`.
 
 ### Rate limiting
 
-Per-IP tiered limits use [Resilience4j](https://resilience4j.readme.io/docs/ratelimiter) (`RateLimitFilter` + `resilience4j.ratelimiter.configs.*` in `application.yaml`). Toggle with `RATE_LIMIT_ENABLED` / `whatiread.rate-limit.enabled`.
+Per-IP tiered limits use [Resilience4j](https://resilience4j.readme.io/docs/ratelimiter).
 
 | Tier | Paths | Default (dev) | Prod |
 |------|-------|---------------|------|
 | `strict-auth` | `/api/v1/auth/**`, `/api/v1/setup/**` | 15/min | 10/min |
-| `strict-import` | `/api/v1/import/**` | 8/min | 5/min |
-| `search` | `GET /api/v1/books/search` | 45/min | 30/min |
+| `search` | `GET /api/v1/books/search`, suggest endpoints | 45/min | 30/min |
 | `write` | POST/PUT/PATCH/DELETE on `/api/v1/**` | 90/min | 60/min |
 | `read` | GET/HEAD on `/api/v1/**` | 250/min | 200/min |
 | `default` | other `/api/v1/**` | 120/min | 100/min |
 
-Excluded: `/actuator/**`, `/ws/**`, static assets. Metrics: `resilience4j.ratelimiter.*` on `/actuator/prometheus`.
+Excluded: `/actuator/**`, `/ws/**`, static assets.
 
-For a typical self-hosted instance (~10–50 concurrent users), the defaults above are sufficient. Busier deploys: raise `read`/`write` in `application-prod.yaml` or add profile-specific overrides; lower `strict-auth` if you see credential-stuffing. Limits are per API instance (in-memory); multi-instance would need a shared store (not included).
+### Performance & caching
+
+Backend optimizations include:
+
+- Batch shelf book loading (`listByIds` + `@EntityGraph`) instead of full-library fetches
+- Batched messaging queries (mentions, conversation summaries)
+- JWT auth principal cache (2-min TTL, evicted on logout/password change)
+- Tiered Caffeine caches: friend IDs, shelf book counts, books-by-id, public shelves
+- Explore feed batch membership lookups
 
 ## Production checklist
 
-Before exposing a self-hosted instance to the internet:
-
-1. **Secrets** — Set strong `POSTGRES_PASSWORD`, `JWT_SECRET` (≥32 chars), and `GRAFANA_ADMIN_PASSWORD` in `.env`.
-2. **Registration** — Keep `REGISTRATION_ENABLED=false` unless you want public sign-ups.
-3. **TLS** — Terminate HTTPS at a reverse proxy (Caddy, Traefik, nginx + certbot). HSTS is sent when the API sees HTTPS (`X-Forwarded-Proto`).
-4. **Network** — Only publish the `web` port (`HTTP_PORT`). Observability stacks bind to `127.0.0.1` (Grafana `:3000`, Prometheus `:9090`, etc.).
-5. **Grafana** — Anonymous admin is **off** by default. Use `GRAFANA_ANONYMOUS=true` only on trusted local networks.
-6. **CORS** — Set `CORS_ORIGINS` to your real SPA origin(s).
-7. **Auth tokens** — Refresh tokens live in `localStorage` (XSS risk). CSP headers are set on API and nginx; HttpOnly cookies would be a future hardening step.
-8. **Metrics** — `/actuator/prometheus` is restricted to private-network callers; Prometheus scrapes `api:8080` inside the Docker network.
-9. **Tracing** — API exports all spans; tune collector tail sampling with `OTEL_TAIL_SAMPLING_*` in `.env`.
+1. **Secrets** — Strong `POSTGRES_PASSWORD`, `JWT_SECRET` (≥32 chars), `MEILISEARCH_MASTER_KEY`, `GRAFANA_ADMIN_PASSWORD`
+2. **Registration** — Keep `REGISTRATION_ENABLED=false` unless you want public sign-ups
+3. **TLS** — Terminate HTTPS at a reverse proxy
+4. **CORS** — Set `CORS_ORIGINS` to your SPA origin(s)
+5. **Avatars** — Ensure `avatars-data` volume is mounted (all compose files)
+6. **Meilisearch** — Required for autocomplete in production
 
 ## Development
 
 ```bash
-./mvnw verify          # Run tests
+./mvnw verify          # Tests + JaCoCo (H2)
 ./mvnw spring-boot:run -Pdev -Dspring-boot.run.profiles=dev
+cd frontend && npm run build
 ```
 
 ### Project layout
 
 ```
 src/main/java/com/whatiread/
-├── config/          Security, CORS, OpenAPI, properties
-├── domain/          JPA entities (Phase 1+)
-├── repository/      Spring Data repositories
-├── service/         Business logic
-├── web/             REST controllers
-├── integration/     OpenFeign clients
-├── importexport/    CSV import/export
-└── exception/       RFC 7807 error handling
+├── identity/        Users, auth, avatars, usernames
+├── library/         Personal book collection
+├── shelf/           Shelves, sharing, explore
+├── catalog/         Books, search, suggest, previews
+├── messaging/       Conversations, WebSocket
+├── social/          Friends, blocks
+├── recommendation/  Book/shelf recommendations
+├── comment/         Threaded comments
+├── instance/        Setup, admin settings
+├── config/          Security, cache, rate limits
+└── shared/          API paths, cursor utils, events
 ```
 
 ## Contributing

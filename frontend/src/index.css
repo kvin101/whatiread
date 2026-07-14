@@ -477,8 +477,7 @@
   }
 
   .section-header-manga {
-    @apply text-xs font-bold uppercase tracking-[0.2em];
-    color: var(--skin-accent);
+    @apply text-sm font-semibold text-ink;
   }
 
   .comic-btn {

@@ -554,6 +554,26 @@ class LibraryServiceImplTest {
         libraryService.add(userId, new AddToLibraryRequest(bookId, ReadingStatus.READING, null));
     }
 
+    @Test
+    void ownedBookIdsAmongReturnsDirectMatches() {
+        UUID candidate = UUID.randomUUID();
+        when(bookService.resolveCanonicalBookId(candidate)).thenReturn(candidate);
+        when(userBookRepository.findOwnedBookIdsByUserIdAndBookIdIn(eq(userId), any()))
+                .thenReturn(java.util.Set.of(candidate));
+
+        assertThat(libraryService.ownedBookIdsAmong(userId, List.of(candidate))).containsExactly(candidate);
+    }
+
+    @Test
+    void listByIdsReturnsBatchResults() {
+        UUID userBookId = UUID.randomUUID();
+        UserBook userBook = new UserBook(user, book, ReadingStatus.TO_READ);
+        setId(userBook, userBookId);
+        when(userBookRepository.findOwnedByUserIdAndIdIn(userId, List.of(userBookId))).thenReturn(List.of(userBook));
+
+        assertThat(libraryService.listByIds(userId, List.of(userBookId))).hasSize(1);
+    }
+
     private BookDto bookDto() {
         return new BookDto(
                 bookId, DUNE_2, null, List.of(FRANK_HERBERT), null, 688,

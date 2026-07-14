@@ -1,8 +1,12 @@
 import type { AuthResponse, ProblemDetail } from './types'
 import { API_PATHS } from './paths'
 import { STORAGE_KEYS } from '../lib/constants'
+import { loadStoredAuth } from '../auth/storage'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+/** Refresh access token at ~80% of the 15-minute TTL while the tab is active. */
+const PROACTIVE_REFRESH_MS = 12 * 60 * 1000
 
 export class ApiError extends Error {
   status: number
@@ -25,9 +29,19 @@ let tokens: TokenPair | null = null
 let refreshPromise: Promise<TokenPair> | null = null
 type AuthRefreshListener = (data: AuthResponse) => void
 let authRefreshListener: AuthRefreshListener | null = null
+const tokenRefreshListeners = new Set<() => void>()
 
 export function setAuthRefreshListener(listener: AuthRefreshListener | null) {
   authRefreshListener = listener
+}
+
+export function onTokensRefreshed(listener: () => void) {
+  tokenRefreshListeners.add(listener)
+  return () => tokenRefreshListeners.delete(listener)
+}
+
+function notifyTokenRefresh() {
+  tokenRefreshListeners.forEach((listener) => listener())
 }
 
 export function setTokens(pair: TokenPair | null) {
@@ -42,6 +56,18 @@ export function getRefreshToken(): string | null {
   return tokens?.refreshToken ?? null
 }
 
+export function syncTokensFromStorage(): boolean {
+  const stored = loadStoredAuth()
+  if (!stored) {
+    return false
+  }
+  setTokens({
+    accessToken: stored.accessToken,
+    refreshToken: stored.refreshToken,
+  })
+  return true
+}
+
 async function parseProblem(res: Response): Promise<ProblemDetail | undefined> {
   const contentType = res.headers.get('content-type') ?? ''
   if (!contentType.includes('json')) return undefined
@@ -52,7 +78,7 @@ async function parseProblem(res: Response): Promise<ProblemDetail | undefined> {
   }
 }
 
-async function refreshTokens(): Promise<TokenPair> {
+async function refreshTokens(allowStoredRetry = true): Promise<TokenPair> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) {
     throw new ApiError('Session expired', 401)
@@ -64,6 +90,16 @@ async function refreshTokens(): Promise<TokenPair> {
   })
   if (!res.ok) {
     const problem = await parseProblem(res)
+    if (allowStoredRetry) {
+      const stored = loadStoredAuth()
+      if (stored?.refreshToken && stored.refreshToken !== refreshToken) {
+        setTokens({
+          accessToken: stored.accessToken,
+          refreshToken: stored.refreshToken,
+        })
+        return refreshTokens(false)
+      }
+    }
     setTokens(null)
     throw new ApiError(problem?.detail ?? 'Session expired', res.status, problem)
   }
@@ -71,6 +107,7 @@ async function refreshTokens(): Promise<TokenPair> {
   const pair = { accessToken: data.accessToken, refreshToken: data.refreshToken }
   setTokens(pair)
   authRefreshListener?.(data)
+  notifyTokenRefresh()
   const stored = localStorage.getItem(STORAGE_KEYS.auth)
   if (stored && data.user) {
     try {
@@ -84,6 +121,44 @@ async function refreshTokens(): Promise<TokenPair> {
     }
   }
   return pair
+}
+
+export async function tryRefreshSession(): Promise<boolean> {
+  if (!getRefreshToken() && !syncTokensFromStorage()) {
+    return false
+  }
+  try {
+    await refreshTokens()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function startProactiveTokenRefresh() {
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const schedule = () => {
+    if (timer) {
+      clearTimeout(timer)
+    }
+    if (!getRefreshToken() || document.hidden) {
+      return
+    }
+    timer = setTimeout(() => {
+      void tryRefreshSession().finally(schedule)
+    }, PROACTIVE_REFRESH_MS)
+  }
+
+  schedule()
+  const onVisibility = () => schedule()
+  document.addEventListener('visibilitychange', onVisibility)
+  return () => {
+    if (timer) {
+      clearTimeout(timer)
+    }
+    document.removeEventListener('visibilitychange', onVisibility)
+  }
 }
 
 export async function apiFetch<T>(
@@ -106,7 +181,13 @@ export async function apiFetch<T>(
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
 
-  if (res.status === 401 && retry && getRefreshToken()) {
+  const shouldRefresh =
+    retry &&
+    (res.status === 401 || res.status === 403) &&
+    !!access &&
+    !!getRefreshToken()
+
+  if (shouldRefresh) {
     refreshPromise ??= refreshTokens().finally(() => {
       refreshPromise = null
     })

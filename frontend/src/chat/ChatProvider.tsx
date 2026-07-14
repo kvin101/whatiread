@@ -8,10 +8,11 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { apiUrl, getAccessToken } from '../api/client'
+import { apiUrl, getAccessToken, onTokensRefreshed } from '../api/client'
 import { AUTH_HEADERS, WS_PATH, WS_STOMP } from '../api/paths'
 import type { ChatTypingEvent, Conversation, Message, MessageMention } from '../api/types'
 import { conversationsApi } from '../api/conversations'
@@ -32,6 +33,19 @@ type ChatContextValue = {
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
+const chatConnectionSubscribers = new Set<() => void>()
+let chatConnected = false
+
+function setChatConnected(next: boolean) {
+  if (chatConnected === next) return
+  chatConnected = next
+  chatConnectionSubscribers.forEach((listener) => listener())
+}
+
+function subscribeChatConnection(listener: () => void) {
+  chatConnectionSubscribers.add(listener)
+  return () => chatConnectionSubscribers.delete(listener)
+}
 
 function normalizeMessage(raw: Message): Message {
   return {
@@ -121,20 +135,28 @@ export function ChatProvider({ children, enabled }: { children: ReactNode; enabl
       clientRef.current?.deactivate()
       clientRef.current = null
       setConnected(false)
+      setChatConnected(false)
       return
     }
 
-    const token = getAccessToken()
-    if (!token) return
+    if (!getAccessToken()) return
 
     const client = new Client({
       webSocketFactory: () => new SockJS(apiUrl(WS_PATH)),
-      connectHeaders: { Authorization: AUTH_HEADERS.bearer(token) },
+      connectHeaders: {},
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      beforeConnect: () => {
+        const latest = getAccessToken()
+        if (!latest) {
+          throw new Error('No access token')
+        }
+        client.connectHeaders = { Authorization: AUTH_HEADERS.bearer(latest) }
+      },
       onConnect: () => {
         setConnected(true)
+        setChatConnected(true)
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations.all })
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations.unreadCount })
         client.subscribe(WS_STOMP.queueMessages, (frame) => {
@@ -174,17 +196,34 @@ export function ChatProvider({ children, enabled }: { children: ReactNode; enabl
           }
         })
       },
-      onDisconnect: () => setConnected(false),
-      onStompError: () => setConnected(false),
+      onDisconnect: () => {
+        setConnected(false)
+        setChatConnected(false)
+      },
+      onStompError: () => {
+        setConnected(false)
+        setChatConnected(false)
+      },
     })
 
     client.activate()
     clientRef.current = client
 
+    const unsubscribeRefresh = onTokensRefreshed(() => {
+      if (!clientRef.current?.active) {
+        clientRef.current?.activate()
+        return
+      }
+      clientRef.current.deactivate()
+      clientRef.current.activate()
+    })
+
     return () => {
+      unsubscribeRefresh()
       client.deactivate()
       clientRef.current = null
       setConnected(false)
+      setChatConnected(false)
     }
   }, [enabled, notifyMessage])
 
@@ -246,4 +285,8 @@ export function useChatContext() {
     throw new Error('useChatContext must be used within ChatProvider')
   }
   return ctx
+}
+
+export function useChatConnectionState() {
+  return useSyncExternalStore(subscribeChatConnection, () => chatConnected, () => false)
 }

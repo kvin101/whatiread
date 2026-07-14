@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { FilterChips } from '../components/ui/FilterChips'
 import { BookSkeletonGrid } from '../components/ui/BookLoader'
+import { ListPageLayout } from '../components/layout/ListPageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Input, Label } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -18,6 +19,7 @@ import { VISIBILITY_LABELS } from '../lib/constants'
 import { copy } from '../lib/copy'
 import { LayoutGrid } from 'lucide-react'
 import { QUERY_KEYS } from '../lib/constants'
+import { DEFAULT_SHELF_ICON } from '../lib/shelfIcons'
 import { APP_ROUTES } from '../api/paths'
 import { VisibilityPicker } from '../components/shelves/VisibilityPicker'
 import { getApiErrorMessage } from '../lib/api'
@@ -33,7 +35,7 @@ export function ShelvesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [icon, setIcon] = useState('📚')
+  const [icon, setIcon] = useState(DEFAULT_SHELF_ICON)
   const [visibility, setVisibility] = useState<ShelfVisibility>('PRIVATE')
   const [error, setError] = useState<string | null>(null)
 
@@ -65,7 +67,7 @@ export function ShelvesPage() {
       setCreateOpen(false)
       setName('')
       setDescription('')
-      setIcon('📚')
+      setIcon(DEFAULT_SHELF_ICON)
       setVisibility('PRIVATE')
       setError(null)
       navigate(`${APP_ROUTES.shelf(created.id)}?addBooks=1`)
@@ -74,59 +76,63 @@ export function ShelvesPage() {
   })
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Organize"
-        title={copy.shelves.title}
-        description={copy.shelves.description}
-        action={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={APP_ROUTES.explore}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-paper-elevated px-4 py-2 text-sm font-medium text-ink shadow-sm hover:border-ink/20 transition-colors"
-            >
-              <Compass className="h-4 w-4" />
-              {copy.shelves.explore}
-            </Link>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              {copy.shelves.newShelf}
-            </Button>
-          </div>
+    <>
+      <ListPageLayout
+        toolbar={
+          <>
+            <PageHeader
+              title={copy.shelves.title}
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to={APP_ROUTES.explore}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-paper-elevated px-4 py-2 text-sm font-medium text-ink shadow-sm hover:border-ink/20 transition-colors"
+                  >
+                    <Compass className="h-4 w-4" />
+                    {copy.shelves.explore}
+                  </Link>
+                  <Button onClick={() => setCreateOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    {copy.shelves.newShelf}
+                  </Button>
+                </div>
+              }
+            />
+            <div className="mt-4">
+              <FilterChips options={filterOptions} value={filter} onChange={setFilter} label="Visibility" />
+            </div>
+          </>
         }
-      />
+      >
+        {isLoading && <BookSkeletonGrid count={6} />}
 
-      <div className="mt-6">
-        <FilterChips options={filterOptions} value={filter} onChange={setFilter} label="Visibility" />
-      </div>
-
-      {isLoading && <BookSkeletonGrid count={6} className="mt-12" />}
-
-      {!isLoading && filtered.length === 0 && (
-        <EmptyState
-          className="mt-8"
-          icon={LayoutGrid}
-          title={filter === 'ALL' ? copy.shelves.empty.title : `No ${VISIBILITY_LABELS[filter].toLowerCase()} shelves`}
-          description={copy.shelves.empty.description}
-          action={
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              {copy.shelves.empty.cta}
-            </Button>
-          }
-        />
-      )}
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((shelf) => (
-          <ShelfCard
-            key={shelf.id}
-            shelf={shelf}
-            to={APP_ROUTES.shelf(shelf.id)}
-            subtitle={VISIBILITY_LABELS[shelf.visibility]}
+        {!isLoading && filtered.length === 0 && (
+          <EmptyState
+            icon={LayoutGrid}
+            title={filter === 'ALL' ? copy.shelves.empty.title : `No ${VISIBILITY_LABELS[filter].toLowerCase()} shelves`}
+            description={copy.shelves.empty.description}
+            action={
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {copy.shelves.empty.cta}
+              </Button>
+            }
           />
-        ))}
-      </div>
+        )}
+
+        {!isLoading && filtered.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((shelf) => (
+              <ShelfCard
+                key={shelf.id}
+                shelf={shelf}
+                to={APP_ROUTES.shelf(shelf.id)}
+                subtitle={VISIBILITY_LABELS[shelf.visibility]}
+              />
+            ))}
+          </div>
+        )}
+      </ListPageLayout>
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={copy.shelves.create.title} wide>
         <div className="space-y-5">
@@ -170,6 +176,6 @@ export function ShelvesPage() {
           </Button>
         </div>
       </Modal>
-    </div>
+    </>
   )
 }

@@ -14,6 +14,8 @@ public interface InstanceSettingsService {
 
     UUID getAdminUserId();
 
+    UUID resolveEffectiveAdminUserId();
+
     void setAdminUserId(UUID userId);
 
     boolean isInstanceAdmin(UUID userId);

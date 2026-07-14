@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.tomcat.TomcatWebServer;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 class ResourcePoolMetricsBinderTest {
 
@@ -22,32 +21,11 @@ class ResourcePoolMetricsBinderTest {
     private static final String METRIC_THREAD_POOL_ACTIVE = "thread.pool.active";
     private static final String METRIC_THREAD_POOL_QUEUE_DEPTH = "thread.pool.queue.depth";
     private static final String POOL_TAG = "pool";
-    private static final String IMPORT_POOL = "import";
     private static final String HTTP_WORKERS_POOL = "http-workers";
-
-    @Test
-    void bindsImportThreadPoolGaugesOnConstruction() {
-        SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(1);
-        executor.setMaxPoolSize(2);
-        executor.initialize();
-
-        @SuppressWarnings("unchecked")
-        ObjectProvider<WebServerApplicationContext> provider = mock(ObjectProvider.class);
-
-        new ResourcePoolMetricsBinder(registry, executor, provider);
-
-        assertThat(registry.find(METRIC_THREAD_POOL_SIZE).tag(POOL_TAG, IMPORT_POOL).gauge()).isNotNull();
-        assertThat(registry.find(METRIC_THREAD_POOL_ACTIVE).tag(POOL_TAG, IMPORT_POOL).gauge()).isNotNull();
-        assertThat(registry.find(METRIC_THREAD_POOL_QUEUE_DEPTH).tag(POOL_TAG, IMPORT_POOL).gauge()).isNotNull();
-    }
 
     @Test
     void bindHttpWorkerPoolSkipsNonTomcatServers() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.initialize();
 
         WebServerApplicationContext ctx = mock(WebServerApplicationContext.class);
         org.springframework.boot.web.server.WebServer webServer = mock(org.springframework.boot.web.server.WebServer.class);
@@ -61,7 +39,7 @@ class ResourcePoolMetricsBinderTest {
             return null;
         }).when(provider).ifAvailable(any());
 
-        ResourcePoolMetricsBinder binder = new ResourcePoolMetricsBinder(registry, executor, provider);
+        ResourcePoolMetricsBinder binder = new ResourcePoolMetricsBinder(registry, provider);
         binder.bindHttpWorkerPool();
 
         assertThat(registry.find(METRIC_THREAD_POOL_SIZE).tag(POOL_TAG, HTTP_WORKERS_POOL).gauge()).isNull();
@@ -70,8 +48,6 @@ class ResourcePoolMetricsBinderTest {
     @Test
     void bindHttpWorkerPoolRegistersTomcatExecutorGauges() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.initialize();
 
         TomcatWebServer tomcatWebServer = mock(TomcatWebServer.class);
         org.apache.catalina.startup.Tomcat tomcat = mock(org.apache.catalina.startup.Tomcat.class);
@@ -97,7 +73,7 @@ class ResourcePoolMetricsBinderTest {
             return null;
         }).when(provider).ifAvailable(any());
 
-        ResourcePoolMetricsBinder binder = new ResourcePoolMetricsBinder(registry, executor, provider);
+        ResourcePoolMetricsBinder binder = new ResourcePoolMetricsBinder(registry, provider);
         binder.bindHttpWorkerPool();
 
         assertThat(registry.find(METRIC_THREAD_POOL_SIZE).tag(POOL_TAG, HTTP_WORKERS_POOL).gauge()).isNotNull();

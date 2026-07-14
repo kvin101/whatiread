@@ -40,9 +40,6 @@ public class RateLimitTierResolver {
             }
             return Optional.of(RateLimitTier.STRICT_AUTH);
         }
-        if (path.startsWith(ApiPaths.IMPORT + "/")) {
-            return Optional.of(RateLimitTier.STRICT_IMPORT);
-        }
         if ("GET".equalsIgnoreCase(method)
                 && (path.startsWith(ApiPaths.BOOKS_SEARCH)
                 || path.startsWith(ApiPaths.BOOKS_SUGGEST)

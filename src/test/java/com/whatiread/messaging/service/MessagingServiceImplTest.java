@@ -24,6 +24,7 @@ import com.whatiread.messaging.domain.Message;
 import com.whatiread.messaging.domain.MessageMention;
 import com.whatiread.messaging.repository.ConversationParticipantRepository;
 import com.whatiread.messaging.repository.ConversationRepository;
+import com.whatiread.messaging.repository.ConversationUnreadView;
 import com.whatiread.messaging.repository.MessageMentionRepository;
 import com.whatiread.messaging.repository.MessageRepository;
 import com.whatiread.shared.exception.ForbiddenException;
@@ -276,7 +277,7 @@ class MessagingServiceImplTest {
         setId(message, UUID.randomUUID());
         when(messageRepository.findLatestByConversation(eq(conversationId), any(Pageable.class)))
                 .thenReturn(List.of(message));
-        when(messageMentionRepository.findByMessage_Id(any())).thenReturn(List.of());
+        when(messageMentionRepository.findByMessage_IdIn(any())).thenReturn(List.of());
 
         var page = messagingService.listMessages(userId, conversationId, null, 20);
 
@@ -297,11 +298,25 @@ class MessagingServiceImplTest {
     void listConversationsMapsParticipantSummaries() {
         when(conversationRepository.findByParticipant(userId)).thenReturn(List.of(conversation));
         when(userLookupService.getPersistenceReference(friendId)).thenReturn(userB);
-        when(messageRepository.findTopByConversation_IdOrderBySentAtDesc(conversationId)).thenReturn(Optional.empty());
-        when(messageRepository.countByConversation_IdAndSender_IdNotAndReadAtIsNull(conversationId, userId))
-                .thenReturn(2L);
+        when(messageRepository.findLatestForConversations(List.of(conversationId))).thenReturn(List.of());
+        when(messageRepository.countUnreadByConversations(List.of(conversationId), userId))
+                .thenReturn(List.of(unreadView(conversationId, 2L)));
 
         assertThat(messagingService.listConversations(userId)).hasSize(1);
+    }
+
+    private static ConversationUnreadView unreadView(UUID conversationId, long count) {
+        return new ConversationUnreadView() {
+            @Override
+            public UUID getConversationId() {
+                return conversationId;
+            }
+
+            @Override
+            public long getUnreadCount() {
+                return count;
+            }
+        };
     }
 
     @Test
@@ -407,7 +422,7 @@ class MessagingServiceImplTest {
         when(messageRepository.findHistoryBeforeCursor(
                 eq(conversationId), eq(sentAt), eq(messageId), any(Pageable.class)))
                 .thenReturn(List.of(message));
-        when(messageMentionRepository.findByMessage_Id(any())).thenReturn(List.of());
+        when(messageMentionRepository.findByMessage_IdIn(any())).thenReturn(List.of());
 
         assertThat(messagingService.listMessages(userId, conversationId, cursor, 10).items()).hasSize(1);
     }

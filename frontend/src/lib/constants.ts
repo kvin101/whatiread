@@ -10,7 +10,6 @@ export const QUERY_KEYS = {
     users: (page: number, q: string) => ['admin', 'users', page, q] as const,
     suggest: (query: string) => ['admin', 'users', 'suggest', query] as const,
   },
-  goals: (year: number) => ['goals', year] as const,
   library: {
     all: ['library'] as const,
     list: (filter: string, shelfFilter: string, search: string) =>
@@ -93,25 +92,3 @@ export const VISIBILITY_HINTS: Record<ShelfVisibility, string> = {
   PUBLIC: 'Anyone can find on Explore (public filter) and your profile',
 }
 
-export const SHELF_EMOJI_ICONS = [
-  '📚',
-  '📖',
-  '✨',
-  '🌙',
-  '🔥',
-  '💡',
-  '🎯',
-  '🌿',
-  '🚀',
-  '💜',
-  '📝',
-  '🏛️',
-  '🎭',
-  '🌍',
-  '⭐',
-  '📕',
-  '🧠',
-  '☕',
-  '🦋',
-  '🔖',
-]

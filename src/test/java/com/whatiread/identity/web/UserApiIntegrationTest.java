@@ -1,6 +1,7 @@
 package com.whatiread.identity.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,7 @@ import com.whatiread.support.AbstractApiIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 
 class UserApiIntegrationTest extends AbstractApiIntegrationTest {
 
@@ -70,6 +72,25 @@ class UserApiIntegrationTest extends AbstractApiIntegrationTest {
                         .with(bearer(viewer.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].id", org.hamcrest.Matchers.hasItem(shelfId.toString())));
+    }
+
+    @Test
+    void uploadAvatarReturnsPublicAvatarUrl() throws Exception {
+        AuthSession user = registerUser();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar.png",
+                MediaType.IMAGE_PNG_VALUE,
+                new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47}
+        );
+
+        mockMvc.perform(multipart(ApiPaths.ME + "/avatar")
+                        .file(file)
+                        .with(bearer(user.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").value(
+                        org.hamcrest.Matchers.containsString(ApiPaths.PUBLIC_AVATAR.formatted(user.userId()))
+                ));
     }
 
     @Test

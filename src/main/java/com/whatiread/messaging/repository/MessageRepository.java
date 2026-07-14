@@ -2,6 +2,7 @@ package com.whatiread.messaging.repository;
 
 import com.whatiread.messaging.domain.Message;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,6 +53,33 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     );
 
     Optional<Message> findTopByConversation_IdOrderBySentAtDesc(UUID conversationId);
+
+    @Query("""
+            SELECT m FROM Message m
+            WHERE m.conversation.id IN :conversationIds
+            AND NOT EXISTS (
+                SELECT 1 FROM Message newer
+                WHERE newer.conversation.id = m.conversation.id
+                AND (
+                    newer.sentAt > m.sentAt
+                    OR (newer.sentAt = m.sentAt AND newer.id > m.id)
+                )
+            )
+            """)
+    List<Message> findLatestForConversations(@Param("conversationIds") Collection<UUID> conversationIds);
+
+    @Query("""
+            SELECT m.conversation.id AS conversationId, COUNT(m) AS unreadCount
+            FROM Message m
+            WHERE m.conversation.id IN :conversationIds
+            AND m.sender.id <> :userId
+            AND m.readAt IS NULL
+            GROUP BY m.conversation.id
+            """)
+    List<ConversationUnreadView> countUnreadByConversations(
+            @Param("conversationIds") Collection<UUID> conversationIds,
+            @Param("userId") UUID userId
+    );
 
     long countByConversation_IdAndSender_IdNotAndReadAtIsNull(UUID conversationId, UUID userId);
 

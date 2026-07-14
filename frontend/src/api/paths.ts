@@ -67,9 +67,6 @@ export const API_PATHS = {
     byId: (commentId: string) => apiV1(`/comments/${commentId}`),
     report: (commentId: string) => apiV1(`/comments/${commentId}/report`),
   },
-  goals: {
-    byYear: (year: number) => apiV1(`/goals/${year}`),
-  },
   users: {
     profile: (userId: string) => apiV1(`/users/${userId}/profile`),
     shelves: (userId: string) => apiV1(`/users/${userId}/shelves`),
@@ -97,12 +94,6 @@ export const API_PATHS = {
     accept: (recommendationId: string) => apiV1(`/recommendations/${recommendationId}/accept`),
     dismiss: (recommendationId: string) => apiV1(`/recommendations/${recommendationId}/dismiss`),
     delete: (recommendationId: string) => apiV1(`/recommendations/${recommendationId}`),
-  },
-  import: {
-    goodreads: apiV1('/import/goodreads'),
-  },
-  export: {
-    library: (format: 'csv' | 'json') => apiV1(`/export/library.${format}`),
   },
   admin: {
     users: apiV1('/admin/users'),

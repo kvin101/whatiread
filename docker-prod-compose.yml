@@ -29,15 +29,39 @@ services:
     networks:
       - whatiread-prod-network
 
+  meilisearch:
+    container_name: whatiread-prod-meilisearch
+    image: getmeili/meilisearch:v1.12
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:?Set MEILISEARCH_MASTER_KEY in .env}
+    volumes:
+      - whatiread-prod-meilisearch-data:/meilisearch-data
+    ports:
+      - "127.0.0.1:7700:7700"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1024m
+    restart: unless-stopped
+    networks:
+      - whatiread-prod-network
+
   api:
     container_name: whatiread-prod-api
     image: vinayk101/whatiread-api:${IMAGE_TAG:-latest}
-    user: "10001:10001"
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - avatars-data:/data/avatars
     expose:
       - "8080"
     environment:
@@ -53,9 +77,17 @@ services:
       OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-true}
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       WHATIREAD_LOKI_URL: ${WHATIREAD_LOKI_URL:-http://loki:3100/loki/api/v1/push}
+      MEILISEARCH_HOST: ${MEILISEARCH_HOST:-http://meilisearch:7700}
+      MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-${MEILISEARCH_MASTER_KEY}}
+      MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
+      MEILISEARCH_LOAD_SEED_ON_STARTUP: ${MEILISEARCH_LOAD_SEED_ON_STARTUP:-true}
+      MEILISEARCH_LOAD_USERS_ON_STARTUP: ${MEILISEARCH_LOAD_USERS_ON_STARTUP:-true}
+      WHATIREAD_AVATARS_DIRECTORY: /data/avatars
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0}
     depends_on:
       db:
+        condition: service_healthy
+      meilisearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/liveness || exit 1"]
@@ -207,6 +239,10 @@ networks:
 volumes:
   whatiread-prod-postgres-data:
     name: whatiread-prod-postgres-data
+  whatiread-prod-meilisearch-data:
+    name: whatiread-prod-meilisearch-data
+  avatars-data:
+    name: avatars-data
   whatiread-prod-prometheus-data:
     name: whatiread-prod-prometheus-data
   whatiread-prod-grafana-data:

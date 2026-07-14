@@ -26,6 +26,14 @@ public class AuthenticatedUser implements UserDetails {
         this.admin = admin;
     }
 
+    public AuthenticatedUser(AuthPrincipalCache.Snapshot snapshot, boolean admin) {
+        this.id = snapshot.id();
+        this.email = snapshot.email();
+        this.passwordHash = snapshot.passwordHash();
+        this.enabled = snapshot.enabled();
+        this.admin = admin;
+    }
+
     public UUID getId() {
         return id;
     }

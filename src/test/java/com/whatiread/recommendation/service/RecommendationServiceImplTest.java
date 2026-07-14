@@ -3,6 +3,7 @@ package com.whatiread.recommendation.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,6 +13,7 @@ import com.whatiread.catalog.api.BookDto;
 import com.whatiread.catalog.domain.Book;
 import com.whatiread.catalog.domain.BookSource;
 import com.whatiread.catalog.port.BookPersistencePort;
+import com.whatiread.catalog.service.BookMapper;
 import com.whatiread.catalog.service.BookService;
 import com.whatiread.config.BusinessMetrics;
 import com.whatiread.identity.domain.User;
@@ -39,12 +41,14 @@ import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -67,6 +71,8 @@ class RecommendationServiceImplTest {
     private UserLookupService userLookupService;
     @Mock
     private BookPersistencePort bookPersistencePort;
+    @Spy
+    private BookMapper bookMapper = new BookMapper();
     @Mock
     private BookService bookService;
     @Mock
@@ -206,7 +212,8 @@ class RecommendationServiceImplTest {
         when(suggestionRepository.findBookIdsBySharedTags(toUserId, List.of(SCI_FI), 10))
                 .thenReturn(List.of(suggestedBookId));
         when(suggestionRepository.findFriendHighlyRatedBookIds(toUserId, 10)).thenReturn(List.of());
-        when(libraryService.hasBook(toUserId, suggestedBookId)).thenReturn(true);
+        when(libraryService.ownedBookIdsAmong(eq(toUserId), any()))
+                .thenReturn(Set.of(suggestedBookId));
 
         assertThat(recommendationService.listSuggestions(toUserId)).isEmpty();
     }
@@ -410,7 +417,7 @@ class RecommendationServiceImplTest {
     void listSuggestionsReturnsFriendRatedBooks() {
         when(suggestionRepository.findPreferredTagNames(toUserId)).thenReturn(List.of());
         when(suggestionRepository.findFriendHighlyRatedBookIds(toUserId, 10)).thenReturn(List.of(bookId));
-        when(libraryService.hasBook(toUserId, bookId)).thenReturn(false);
+        when(libraryService.ownedBookIdsAmong(eq(toUserId), any())).thenReturn(Set.of());
 
         assertThat(recommendationService.listSuggestions(toUserId)).hasSize(1);
     }

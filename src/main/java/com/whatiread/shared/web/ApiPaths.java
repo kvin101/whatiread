@@ -20,7 +20,6 @@ public final class ApiPaths {
     public static final String SHELVES = V1 + "/shelves";
     public static final String FRIENDS = V1 + "/friends";
     public static final String COMMENTS = V1 + "/comments";
-    public static final String GOALS = V1 + "/goals";
     public static final String ME = V1 + "/me";
     public static final String ME_USERNAME_AVAILABLE = ME + "/username/available";
     public static final String USERS = V1 + "/users";
@@ -35,9 +34,6 @@ public final class ApiPaths {
     public static final String PUBLIC_AVATAR = PUBLIC_AVATARS + "/%s";
     public static final String PUBLIC_USER_SHELVES = PUBLIC + "/users/{ownerId}/shelves";
     public static final String PUBLIC_SHELF_SHARE = PUBLIC + "/shelves/share";
-    public static final String IMPORT = V1 + "/import";
-    public static final String IMPORT_GOODREADS = IMPORT + "/goodreads";
-    public static final String EXPORT = V1 + "/export";
 
     private ApiPaths() {
     }

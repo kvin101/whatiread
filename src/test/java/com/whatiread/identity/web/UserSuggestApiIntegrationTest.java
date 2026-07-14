@@ -13,7 +13,7 @@ class UserSuggestApiIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void userSuggestRequiresAuthentication() throws Exception {
         mockMvc.perform(get(ApiPaths.USERS_SUGGEST).param("q", "jane"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

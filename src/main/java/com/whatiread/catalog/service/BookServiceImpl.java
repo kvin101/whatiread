@@ -32,19 +32,22 @@ public class BookServiceImpl implements BookService {
     private final OpenLibraryClient openLibraryClient;
     private final UserBookRatingProvider userBookRatingProvider;
     private final CacheManager cacheManager;
+    private final BookMapper bookMapper;
 
     public BookServiceImpl(
             BookRepository bookRepository,
             BookMetadataService bookMetadataService,
             OpenLibraryClient openLibraryClient,
             UserBookRatingProvider userBookRatingProvider,
-            CacheManager cacheManager
+            CacheManager cacheManager,
+            BookMapper bookMapper
     ) {
         this.bookRepository = bookRepository;
         this.bookMetadataService = bookMetadataService;
         this.openLibraryClient = openLibraryClient;
         this.userBookRatingProvider = userBookRatingProvider;
         this.cacheManager = cacheManager;
+        this.bookMapper = bookMapper;
     }
 
     private static CreateBookRequest toCreateRequest(Book book) {
@@ -79,7 +82,7 @@ public class BookServiceImpl implements BookService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = CacheConfig.BOOK_BY_ID, key = "#bookId")
     public BookDto getById(UUID bookId) {
-        return toDto(getEntity(bookId));
+        return bookMapper.toDto(getEntity(bookId));
     }
 
     @Override
@@ -96,7 +99,7 @@ public class BookServiceImpl implements BookService {
     @Override
     public BookDto findOrCreateByIsbn(String isbn) {
         return bookRepository.findByIsbn(isbn)
-                .map(this::toDto)
+                .map(bookMapper::toDto)
                 .orElseGet(() -> {
                     var response = openLibraryClient.search("isbn:" + isbn, 1, 1);
                     if (response.docs() == null || response.docs().isEmpty()) {
@@ -105,7 +108,7 @@ public class BookServiceImpl implements BookService {
                     Book book = new Book();
                     bookMetadataService.applyOpenLibraryDoc(book, response.docs().getFirst());
                     book.setIsbn(isbn);
-                    return toDto(bookRepository.save(book));
+                    return bookMapper.toDto(bookRepository.save(book));
                 });
     }
 
@@ -127,7 +130,7 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public BookDto getOrThrow(UUID bookId) {
-        return toDto(getEntity(bookId));
+        return bookMapper.toDto(getEntity(bookId));
     }
 
     Book getEntity(UUID bookId) {
@@ -150,9 +153,9 @@ public class BookServiceImpl implements BookService {
     private BookDto findOrCreateFromRequest(CreateBookRequest request) {
         Optional<Book> existing = findExistingBook(request);
         if (existing.isPresent()) {
-            return toDto(enrichIfNeeded(existing.get(), request));
+            return bookMapper.toDto(enrichIfNeeded(existing.get(), request));
         }
-        return toDto(createNewBook(request));
+        return bookMapper.toDto(createNewBook(request));
     }
 
     private Optional<Book> findExistingBook(CreateBookRequest request) {
@@ -260,24 +263,4 @@ public class BookServiceImpl implements BookService {
     }
 
 
-    private BookDto toDto(Book book) {
-        return new BookDto(
-                book.getId(),
-                book.getTitle(),
-                book.getSubtitle(),
-                List.copyOf(book.getAuthors()),
-                book.getIsbn(),
-                book.getPageCount(),
-                book.getCoverUrl(),
-                book.getDescription(),
-                book.getSource(),
-                book.getExternalId(),
-                book.getAverageRating(),
-                book.getRatingCount(),
-                book.getCreatedBy(),
-                book.getUpdatedBy(),
-                book.getCreatedAt(),
-                book.getUpdatedAt()
-        );
-    }
 }

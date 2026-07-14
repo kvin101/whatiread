@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useChatContext } from '../chat/ChatProvider'
 import type { ChatTypingEvent, Message } from '../api/types'
 
-/** Subscribe to global chat connection (managed by ChatProvider in AppShell). */
+/** Subscribe to global chat connection (managed by ChatProvider on the messages route). */
 export function useChat(
   onMessage?: (message: Message) => void,
   onTyping?: (event: ChatTypingEvent) => void,

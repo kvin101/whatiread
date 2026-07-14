@@ -8,8 +8,9 @@ import { ComicBurst } from '../ui/ComicBurst'
 import { EmptyState } from '../ui/EmptyState'
 import { BookLoaderCenter } from '../ui/BookLoader'
 import { Textarea } from '../ui/Textarea'
-import { displayName, initials } from '../../lib/utils'
-import { conversationTitle } from '../../lib/messaging'
+import { displayName } from '../../lib/utils'
+import { conversationAvatarUrl, conversationTitle } from '../../lib/messaging'
+import { UserAvatar } from '../ui/UserAvatar'
 
 export function ChatThread({
   active,
@@ -22,6 +23,7 @@ export function ChatThread({
   participantsById,
   peerTyping,
   typingLabel,
+  typingAvatarUrl,
   hasOlderMessages,
   loadingOlder,
   onLoadOlder,
@@ -41,6 +43,7 @@ export function ChatThread({
   participantsById: Map<string, ConversationParticipant>
   peerTyping: boolean
   typingLabel: string
+  typingAvatarUrl?: string | null
   hasOlderMessages: boolean
   loadingOlder: boolean
   onLoadOlder: () => void
@@ -92,8 +95,8 @@ export function ChatThread({
       {!activeId ? (
         <EmptyState
           icon={Users}
-          title="Pick someone to gossip with"
-          description="Open a conversation to get started."
+          title="Select a conversation"
+          description="Choose a chat from the list or start a new one."
           className="m-auto border-0 bg-transparent"
         />
       ) : (
@@ -107,16 +110,26 @@ export function ChatThread({
             >
               <ArrowLeft className="h-5 w-5" />
             </ComicBurst>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-ink truncate">
-                {active ? conversationTitle(active) : 'Chat'}
-              </p>
-              {active?.type === 'GROUP' && (
-                <p className="text-xs text-ink-muted inline-flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {active.memberCount} member{active.memberCount === 1 ? '' : 's'}
-                </p>
+            <div className="min-w-0 flex-1 flex items-center gap-2">
+              {active?.type === 'DIRECT' && (
+                <UserAvatar
+                  name={active ? conversationTitle(active) : 'Chat'}
+                  avatarUrl={active ? conversationAvatarUrl(active) : undefined}
+                  size="sm"
+                  className="h-8 w-8 text-xs shrink-0"
+                />
               )}
+              <div className="min-w-0">
+                <p className="font-medium text-ink truncate">
+                  {active ? conversationTitle(active) : 'Chat'}
+                </p>
+                {active?.type === 'GROUP' && (
+                  <p className="text-xs text-ink-muted inline-flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {active.memberCount} member{active.memberCount === 1 ? '' : 's'}
+                  </p>
+                )}
+              </div>
             </div>
             {active?.type === 'GROUP' && (
               <div className="flex items-center gap-1 shrink-0">
@@ -186,19 +199,18 @@ export function ChatThread({
                   style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
                 >
                   {!mine && (
-                    <div
-                      className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sage/40 bg-sage/20 text-[10px] font-bold text-sage shadow-sm"
-                      aria-hidden
-                      title={senderName}
-                    >
-                      {initials(senderName)}
-                    </div>
+                    <UserAvatar
+                      name={senderName}
+                      avatarUrl={sender?.avatarUrl}
+                      size="sm"
+                      className="mb-0.5 h-7 w-7 text-[10px]"
+                    />
                   )}
                   <div
-                    className={`max-w-[75%] px-4 py-2.5 text-sm ${
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                       mine
-                        ? 'speech-bubble-out bg-accent text-void font-medium border border-accent/60 shadow-md'
-                        : 'speech-bubble-in bg-paper-elevated border-2 border-white/30 text-ink shadow-md'
+                        ? 'bg-accent text-void font-medium border border-accent/60 shadow-sm'
+                        : 'bg-paper-elevated border border-white/20 text-ink shadow-sm'
                     }`}
                   >
                     {isGroup && !mine && (
@@ -211,12 +223,12 @@ export function ChatThread({
             })}
             {peerTyping && (
               <div className="flex items-end gap-2 justify-start message-bounce-in">
-                <div
-                  className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sage/40 bg-sage/20 text-[10px] font-bold text-sage shadow-sm"
-                  aria-hidden
-                >
-                  {initials(typingLabel)}
-                </div>
+                <UserAvatar
+                  name={typingLabel}
+                  avatarUrl={typingAvatarUrl}
+                  size="sm"
+                  className="mb-0.5 h-7 w-7 text-[10px]"
+                />
                 <div className="typing-indicator" aria-label={`${typingLabel} typing`}>
                   <span />
                   <span />

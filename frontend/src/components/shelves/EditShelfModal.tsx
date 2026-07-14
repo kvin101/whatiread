@@ -10,6 +10,7 @@ import { Input, Label } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Textarea'
 import { QUERY_KEYS } from '../../lib/constants'
+import { DEFAULT_SHELF_ICON } from '../../lib/shelfIcons'
 import { getApiErrorMessage } from '../../lib/api'
 
 export function EditShelfModal({
@@ -27,7 +28,7 @@ export function EditShelfModal({
   const { confirm, dialog } = useConfirm()
   const [name, setName] = useState(shelf.name)
   const [description, setDescription] = useState(shelf.description ?? '')
-  const [icon, setIcon] = useState(shelf.icon ?? '📚')
+  const [icon, setIcon] = useState(shelf.icon ?? DEFAULT_SHELF_ICON)
   const [visibility, setVisibility] = useState<ShelfVisibility>(shelf.visibility)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,7 +36,7 @@ export function EditShelfModal({
     if (open) {
       setName(shelf.name)
       setDescription(shelf.description ?? '')
-      setIcon(shelf.icon ?? '📚')
+      setIcon(shelf.icon ?? DEFAULT_SHELF_ICON)
       setVisibility(shelf.visibility)
       setError(null)
     }

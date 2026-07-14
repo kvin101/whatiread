@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { BookCard } from '../components/books/BookCard'
 import { BookDetailDrawer } from '../components/books/BookDetailDrawer'
 import { ShelfVisibilityBadge } from '../components/shelves/ShelfCard'
+import { ShelfIcon } from '../components/shelves/ShelfIcon'
 import { Button } from '../components/ui/Button'
 import { BookSkeletonGrid } from '../components/ui/BookLoader'
 import { QUERY_KEYS } from '../lib/constants'
@@ -103,9 +104,7 @@ export function SharedShelfPage() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sage/10 text-3xl">
-              {shelf.icon ?? '📚'}
-            </span>
+            <ShelfIcon icon={shelf.icon} size="lg" className="rounded-2xl" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-display text-3xl font-bold text-ink">{shelf.name}</h1>

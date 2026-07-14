@@ -1,7 +1,7 @@
 import { MessageCircle, MessageSquarePlus, Users } from 'lucide-react'
 import type { Conversation } from '../../api/types'
-import { conversationTitle } from '../../lib/messaging'
-import { initials } from '../../lib/utils'
+import { conversationAvatarUrl, conversationTitle } from '../../lib/messaging'
+import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { BookLoaderCenter } from '../ui/BookLoader'
@@ -39,9 +39,18 @@ export function ConversationList({
                 : 'hover:bg-white/5 border-l-2 border-l-transparent pl-[calc(0.75rem-2px)]'
             }`}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage/15 text-xs font-semibold text-sage">
-              {c.type === 'GROUP' ? <Users className="h-4 w-4" /> : initials(conversationTitle(c))}
-            </div>
+            {c.type === 'GROUP' ? (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sage">
+                <Users className="h-4 w-4" />
+              </div>
+            ) : (
+              <UserAvatar
+                name={conversationTitle(c)}
+                avatarUrl={conversationAvatarUrl(c)}
+                size="sm"
+                className="h-10 w-10 text-xs"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium truncate">{conversationTitle(c)}</p>

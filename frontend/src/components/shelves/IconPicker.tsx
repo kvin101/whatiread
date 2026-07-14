@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils'
-import { SHELF_EMOJI_ICONS } from '../../lib/constants'
+import { DEFAULT_SHELF_ICON, SHELF_ICON_OPTIONS } from '../../lib/shelfIcons'
 
 export function IconPicker({
   value,
@@ -8,22 +8,25 @@ export function IconPicker({
   value?: string
   onChange: (icon: string) => void
 }) {
+  const selected = value ?? DEFAULT_SHELF_ICON
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {SHELF_EMOJI_ICONS.map((emoji) => (
+    <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+      {SHELF_ICON_OPTIONS.map(({ id, label, Icon }) => (
         <button
-          key={emoji}
+          key={id}
           type="button"
-          onClick={() => onChange(emoji)}
+          onClick={() => onChange(id)}
           className={cn(
-            'flex h-10 w-10 items-center justify-center rounded-xl border text-lg transition-all',
-            value === emoji
-              ? 'border-accent bg-accent/10 scale-110 shadow-sm'
-              : 'border-border bg-paper hover:border-ink/20',
+            'flex h-10 w-10 items-center justify-center rounded-xl border transition-all',
+            selected === id
+              ? 'border-accent bg-accent/10 text-accent shadow-sm'
+              : 'border-border bg-paper text-ink-muted hover:border-ink/20 hover:text-ink',
           )}
-          aria-label={`Icon ${emoji}`}
+          aria-label={label}
+          title={label}
         >
-          {emoji}
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
         </button>
       ))}
     </div>

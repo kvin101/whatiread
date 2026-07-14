@@ -7,6 +7,7 @@ import { UsernameAvailabilityHint } from '../components/ui/UsernameAvailabilityH
 import { useUsernameAvailability } from '../hooks/useUsernameAvailability'
 import { useAdminUserSuggest } from '../hooks/useAdminUserSuggest'
 import { PageHeader } from '../components/layout/PageHeader'
+import { ScrollablePage } from '../components/layout/ScrollablePage'
 import { Button } from '../components/ui/Button'
 import { SuggestField } from '../components/ui/SuggestField'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -136,9 +137,9 @@ export function AdminUsersPage() {
   }
 
   return (
+    <ScrollablePage>
     <div>
       <PageHeader
-        eyebrow="Admin"
         title={copy.admin.title}
         description={copy.admin.description}
         action={
@@ -150,7 +151,7 @@ export function AdminUsersPage() {
       />
 
       <form
-        className="mt-6 flex flex-wrap gap-2"
+        className="mt-4 flex flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault()
           setPage(0)
@@ -425,5 +426,6 @@ export function AdminUsersPage() {
 
       {dialog}
     </div>
+    </ScrollablePage>
   )
 }

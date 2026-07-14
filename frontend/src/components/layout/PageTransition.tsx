@@ -10,7 +10,7 @@ export function PageTransition() {
   }, [location.pathname])
 
   return (
-    <div key={location.pathname} className="page-enter min-h-0 flex-1">
+    <div key={location.pathname} className="page-enter flex min-h-0 flex-1 flex-col">
       <Outlet />
     </div>
   )

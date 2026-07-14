@@ -150,10 +150,6 @@ resilience4j:
         limitForPeriod: 15
         limitRefreshPeriod: 1m
         timeoutDuration: 0
-      strict-import:
-        limitForPeriod: 8
-        limitRefreshPeriod: 1m
-        timeoutDuration: 0
       search:
         limitForPeriod: 45
         limitRefreshPeriod: 1m

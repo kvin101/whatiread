@@ -35,15 +35,39 @@ services:
     networks:
       - whatiread-network
 
+  meilisearch:
+    container_name: whatiread-meilisearch
+    image: getmeili/meilisearch:v1.12
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: CHANGE_ME_meilisearch_master_key_use_a_strong_value
+    volumes:
+      - whatiread-meilisearch-data:/meilisearch-data
+    ports:
+      - "127.0.0.1:7700:7700"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1024m
+    restart: unless-stopped
+    networks:
+      - whatiread-network
+
   whatiread-api:
     container_name: whatiread-api
     image: vinayk101/whatiread-api:latest
-    user: "10001:10001"
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - avatars-data:/data/avatars
     ports:
       - "127.0.0.1:8081:8080"
     environment:
@@ -57,9 +81,17 @@ services:
       GOOGLE_BOOKS_API_KEY: ""
       RATE_LIMIT_ENABLED: "true"
       OBSERVABILITY_ENABLED: "false"
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: CHANGE_ME_meilisearch_master_key_use_a_strong_value
+      MEILISEARCH_ENABLED: "true"
+      MEILISEARCH_LOAD_SEED_ON_STARTUP: "true"
+      MEILISEARCH_LOAD_USERS_ON_STARTUP: "true"
+      WHATIREAD_AVATARS_DIRECTORY: /data/avatars
       JAVA_TOOL_OPTIONS: "-XX:+UseZGC -XX:+ZGenerational -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       postgres:
+        condition: service_healthy
+      meilisearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/liveness || exit 1"]
@@ -109,3 +141,7 @@ networks:
 volumes:
   whatiread-postgres-data:
     name: whatiread-postgres-data
+  whatiread-meilisearch-data:
+    name: whatiread-meilisearch-data
+  avatars-data:
+    name: avatars-data

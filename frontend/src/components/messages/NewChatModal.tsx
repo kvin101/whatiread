@@ -1,8 +1,9 @@
 import { Check, MessageCircle, UserPlus, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Conversation, FriendSummary, UserSuggestResult } from '../../api/types'
-import { displayName, initials } from '../../lib/utils'
+import { displayName } from '../../lib/utils'
 import { UserSuggestField } from '../users/UserSuggestField'
+import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { Input } from '../ui/Input'
@@ -110,8 +111,8 @@ export function NewChatModal({
 
       <p className="text-sm text-ink-muted mb-4">
         {mode === 'direct'
-          ? 'Pick a friend from your crew. Search by name or email.'
-          : 'Name your group and pick friends to add.'}
+          ? 'Choose a friend to message.'
+          : 'Name your group and add members.'}
       </p>
 
       {mode === 'group' && (
@@ -144,7 +145,7 @@ export function NewChatModal({
         <EmptyState
           icon={UserPlus}
           title="No friends yet"
-          description="Add friends first — then you can gossip about books here."
+          description="Add friends first to start chatting."
           className="py-10"
         />
       ) : search.trim().length < 2 ? (
@@ -179,9 +180,12 @@ export function NewChatModal({
                         {selected && <Check className="h-3 w-3" />}
                       </span>
                     )}
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sm font-semibold text-sage">
-                      {initials(name)}
-                    </div>
+                    <UserAvatar
+                      name={name}
+                      avatarUrl={f.avatarUrl}
+                      size="sm"
+                      className="h-10 w-10 text-xs"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-ink">{name}</p>
                       <p className="truncate text-xs text-ink-muted">{f.email}</p>

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 public class BusinessMetrics {
 
     private final MeterRegistry meterRegistry;
-    private final Counter booksImported;
     private final Counter recommendationsAccepted;
     private final Counter usersRegistered;
     private final Counter messagesSent;
@@ -19,13 +18,9 @@ public class BusinessMetrics {
     private final Counter booksAddedToLibrary;
     private final Counter commentsCreated;
     private final Counter recommendationsCreated;
-    private final Counter importsStarted;
-    private final Counter importsCompleted;
-    private final Counter importsFailed;
 
     public BusinessMetrics(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
-        this.booksImported = counter("books.imported", "Books imported via Goodreads CSV");
         this.recommendationsAccepted = counter("recommendations.accepted", "Recommendations accepted by users");
         this.usersRegistered = counter("users.registered", "Users registered");
         this.messagesSent = counter("messages.sent", "Chat messages sent");
@@ -36,13 +31,6 @@ public class BusinessMetrics {
         this.booksAddedToLibrary = counter("books.added.to.library", "Books added to user library");
         this.commentsCreated = counter("comments.created", "Comments created");
         this.recommendationsCreated = counter("recommendations.created", "Recommendations created");
-        this.importsStarted = counter("imports.started", "Goodreads CSV imports started");
-        this.importsCompleted = counter("imports.completed", "Goodreads CSV imports completed");
-        this.importsFailed = counter("imports.failed", "Goodreads CSV imports failed");
-    }
-
-    public void recordBooksImported(int count) {
-        booksImported.increment(count);
     }
 
     public void recordRecommendationAccepted() {
@@ -91,22 +79,6 @@ public class BusinessMetrics {
 
     public void recordRecommendationCreated() {
         recommendationsCreated.increment();
-    }
-
-    public void recordImportStarted() {
-        importsStarted.increment();
-    }
-
-    public void recordImportCompleted() {
-        importsCompleted.increment();
-    }
-
-    public void recordImportFailed() {
-        importsFailed.increment();
-    }
-
-    public void recordLibraryExported(String format) {
-        meterRegistry.counter("library.exports", "format", format).increment();
     }
 
     private Counter counter(String name, String description) {

@@ -11,6 +11,7 @@ import com.whatiread.identity.domain.User;
 import com.whatiread.identity.repository.RefreshTokenRepository;
 import com.whatiread.identity.repository.UserRepository;
 import com.whatiread.identity.security.AuthenticatedUser;
+import com.whatiread.identity.security.AuthPrincipalCache;
 import com.whatiread.identity.security.SecurityUtils;
 import com.whatiread.identity.security.TokenHasher;
 import com.whatiread.instance.service.InstanceSettingsService;
@@ -44,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final BusinessMetrics businessMetrics;
     private final UsernameService usernameService;
     private final UserSearchIndexService userSearchIndexService;
+    private final AuthPrincipalCache authPrincipalCache;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -56,7 +58,8 @@ public class AuthServiceImpl implements AuthService {
             UserMapper userMapper,
             BusinessMetrics businessMetrics,
             UsernameService usernameService,
-            UserSearchIndexService userSearchIndexService
+            UserSearchIndexService userSearchIndexService,
+            AuthPrincipalCache authPrincipalCache
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -69,6 +72,7 @@ public class AuthServiceImpl implements AuthService {
         this.businessMetrics = businessMetrics;
         this.usernameService = usernameService;
         this.userSearchIndexService = userSearchIndexService;
+        this.authPrincipalCache = authPrincipalCache;
     }
 
     @Override
@@ -146,7 +150,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(RefreshRequest request) {
-        refreshTokenRepository.deleteByTokenHash(TokenHasher.hash(request.refreshToken()));
+        String hash = TokenHasher.hash(request.refreshToken());
+        refreshTokenRepository.findByTokenHash(hash).ifPresent(stored -> {
+            authPrincipalCache.invalidate(stored.getUser().getId());
+            refreshTokenRepository.delete(stored);
+        });
     }
 
     @Override

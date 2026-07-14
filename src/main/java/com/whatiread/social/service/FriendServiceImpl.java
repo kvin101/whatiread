@@ -1,5 +1,6 @@
 package com.whatiread.social.service;
 
+import com.whatiread.config.CacheConfig;
 import com.whatiread.config.BusinessMetrics;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.service.UserLookupService;
@@ -18,6 +19,7 @@ import com.whatiread.social.repository.FriendshipRepository;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class FriendServiceImpl implements FriendService {
     private final BlockService blockService;
     private final BusinessMetrics businessMetrics;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CacheManager cacheManager;
 
     public FriendServiceImpl(
             FriendRequestRepository friendRequestRepository,
@@ -38,7 +41,8 @@ public class FriendServiceImpl implements FriendService {
             UserLookupService userLookupService,
             BlockService blockService,
             BusinessMetrics businessMetrics,
-            SimpMessagingTemplate messagingTemplate
+            SimpMessagingTemplate messagingTemplate,
+            CacheManager cacheManager
     ) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
@@ -46,6 +50,7 @@ public class FriendServiceImpl implements FriendService {
         this.blockService = blockService;
         this.businessMetrics = businessMetrics;
         this.messagingTemplate = messagingTemplate;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -120,6 +125,7 @@ public class FriendServiceImpl implements FriendService {
             friendshipRepository.save(new Friendship(requester, addressee));
             friendshipRepository.save(new Friendship(addressee, requester));
         }
+        evictFriendIdsCache(requester.getId(), addressee.getId());
 
         businessMetrics.recordFriendRequestAccepted();
         return toRequestDto(request);
@@ -167,22 +173,35 @@ public class FriendServiceImpl implements FriendService {
         }
         friendshipRepository.deleteById(new Friendship.FriendshipId(userId, friendUserId));
         friendshipRepository.deleteById(new Friendship.FriendshipId(friendUserId, userId));
+        evictFriendIdsCache(userId, friendUserId);
     }
 
     @Override
     public void block(UUID userId, UUID blockedUserId) {
         blockService.block(userId, blockedUserId);
+        evictFriendIdsCache(userId, blockedUserId);
     }
 
     @Override
     public void unblock(UUID userId, UUID blockedUserId) {
         blockService.unblock(userId, blockedUserId);
+        evictFriendIdsCache(userId, blockedUserId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<BlockedUserDto> listBlocked(UUID userId) {
         return blockService.listBlockedUsers(userId);
+    }
+
+    private void evictFriendIdsCache(UUID... userIds) {
+        var cache = cacheManager.getCache(CacheConfig.FRIEND_IDS);
+        if (cache == null) {
+            return;
+        }
+        for (UUID userId : userIds) {
+            cache.evict(userId);
+        }
     }
 
     private User resolveTargetUser(CreateFriendRequestRequest request) {

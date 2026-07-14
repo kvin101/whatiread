@@ -1,6 +1,7 @@
 package com.whatiread.instance.service;
 
 import com.whatiread.config.WhatIReadProperties;
+import com.whatiread.identity.security.AuthPrincipalCache;
 import com.whatiread.identity.service.UserLookupService;
 import com.whatiread.instance.domain.InstanceSetting;
 import com.whatiread.instance.repository.InstanceSettingRepository;
@@ -19,15 +20,18 @@ public class InstanceSettingsServiceImpl implements InstanceSettingsService {
     private final InstanceSettingRepository repository;
     private final UserLookupService userLookupService;
     private final WhatIReadProperties properties;
+    private final AuthPrincipalCache authPrincipalCache;
 
     public InstanceSettingsServiceImpl(
             InstanceSettingRepository repository,
             UserLookupService userLookupService,
-            WhatIReadProperties properties
+            WhatIReadProperties properties,
+            AuthPrincipalCache authPrincipalCache
     ) {
         this.repository = repository;
         this.userLookupService = userLookupService;
         this.properties = properties;
+        this.authPrincipalCache = authPrincipalCache;
     }
 
     @Override
@@ -69,6 +73,13 @@ public class InstanceSettingsServiceImpl implements InstanceSettingsService {
     @Override
     public void setAdminUserId(UUID userId) {
         set(KEY_ADMIN_USER_ID, userId.toString());
+        authPrincipalCache.invalidateAdminUserId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UUID resolveEffectiveAdminUserId() {
+        return resolveAdminUserId();
     }
 
     @Override

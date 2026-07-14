@@ -27,10 +27,17 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Base64;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.stream.Collectors;
+import com.whatiread.shared.util.KeysetCursor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -69,19 +76,20 @@ public class LibraryServiceImpl implements LibraryService {
     }
 
     private static List<UserBook> dedupeByWork(List<UserBook> entries) {
-        List<UserBook> unique = new ArrayList<>();
+        Map<String, UserBook> unique = new LinkedHashMap<>();
         for (UserBook entry : entries) {
-            boolean duplicate = unique.stream().anyMatch(existing -> BookWorkMatcher.sameWork(
-                    entry.getBook().getTitle(),
-                    entry.getBook().getAuthors(),
-                    existing.getBook().getTitle(),
-                    existing.getBook().getAuthors()
-            ));
-            if (!duplicate) {
-                unique.add(entry);
-            }
+            unique.putIfAbsent(workKey(entry), entry);
         }
-        return unique;
+        return List.copyOf(unique.values());
+    }
+
+    private static String workKey(UserBook entry) {
+        return workKey(entry.getBook().getTitle(), entry.getBook().getAuthors());
+    }
+
+    private static String workKey(String title, List<String> authors) {
+        String normalizedTitle = title == null ? "" : title.trim().toLowerCase(Locale.ROOT);
+        return normalizedTitle + "|" + String.join(",", BookWorkMatcher.normalizeAuthors(authors));
     }
 
     private static void validateRating(BigDecimal rating) {
@@ -92,20 +100,6 @@ public class LibraryServiceImpl implements LibraryService {
         if (rating.compareTo(BigDecimal.valueOf(0.5)) < 0 || rating.compareTo(BigDecimal.valueOf(5.0)) > 0) {
             throw new IllegalArgumentException("Rating must be between 0.5 and 5.0");
         }
-    }
-
-    private static String encodeCursor(Instant updatedAt, UUID id) {
-        String raw = updatedAt.toEpochMilli() + ":" + id;
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes());
-    }
-
-    private static CursorPosition decodeCursor(String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return new CursorPosition(null, null);
-        }
-        String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-        String[] parts = decoded.split(":", 2);
-        return new CursorPosition(Instant.ofEpochMilli(Long.parseLong(parts[0])), UUID.fromString(parts[1]));
     }
 
     @Override
@@ -186,7 +180,7 @@ public class LibraryServiceImpl implements LibraryService {
             return new CursorPage<>(page.getContent(), null, page.hasNext());
         }
         int pageSize = Math.min(Math.max(limit, 1), 100);
-        CursorPosition position = decodeCursor(cursor);
+        KeysetCursor.Parts position = KeysetCursor.decode(cursor);
         List<UserBook> rows = userBookRepository.findKeysetByUser(
                 userId,
                 status,
@@ -198,7 +192,7 @@ public class LibraryServiceImpl implements LibraryService {
         List<UserBook> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
         List<UserBookDto> items = dedupeByWork(pageRows).stream().map(this::toDto).toList();
         String nextCursor = hasMore && !pageRows.isEmpty()
-                ? encodeCursor(pageRows.getLast().getUpdatedAt(), pageRows.getLast().getId())
+                ? KeysetCursor.encode(pageRows.getLast().getUpdatedAt(), pageRows.getLast().getId())
                 : null;
         return new CursorPage<>(items, nextCursor, hasMore);
     }
@@ -348,8 +342,47 @@ public class LibraryServiceImpl implements LibraryService {
 
     @Override
     @Transactional(readOnly = true)
-    public int countBooksReadInYear(UUID userId, short year) {
-        return userBookRepository.countBooksReadInYear(userId, year);
+    public Set<UUID> ownedBookIdsAmong(UUID userId, Collection<UUID> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) {
+            return Set.of();
+        }
+        Map<UUID, UUID> canonicalByBookId = new LinkedHashMap<>();
+        for (UUID bookId : bookIds) {
+            canonicalByBookId.putIfAbsent(bookId, bookService.resolveCanonicalBookId(bookId));
+        }
+        Set<UUID> ownedCanonicalIds = userBookRepository.findOwnedBookIdsByUserIdAndBookIdIn(
+                userId,
+                canonicalByBookId.values()
+        );
+        Set<String> ownedWorkKeys = null;
+        Set<UUID> owned = new HashSet<>();
+        for (var entry : canonicalByBookId.entrySet()) {
+            if (ownedCanonicalIds.contains(entry.getValue())) {
+                owned.add(entry.getKey());
+                continue;
+            }
+            if (ownedWorkKeys == null) {
+                ownedWorkKeys = userBookRepository.findAllByUserIdOrderByUpdatedAtDesc(userId).stream()
+                        .map(LibraryServiceImpl::workKey)
+                        .collect(Collectors.toSet());
+            }
+            Book reference = bookPersistencePort.getReference(entry.getValue());
+            if (ownedWorkKeys.contains(workKey(reference.getTitle(), reference.getAuthors()))) {
+                owned.add(entry.getKey());
+            }
+        }
+        return owned;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserBookDto> listByIds(UUID userId, Collection<UUID> userBookIds) {
+        if (userBookIds == null || userBookIds.isEmpty()) {
+            return List.of();
+        }
+        return userBookRepository.findOwnedByUserIdAndIdIn(userId, userBookIds).stream()
+                .map(this::toSummaryDto)
+                .toList();
     }
 
     @Override
@@ -427,6 +460,32 @@ public class LibraryServiceImpl implements LibraryService {
         userBook.setProgressPercent(snapshot.progressPercent());
     }
 
+    private UserBookDto toSummaryDto(UserBook userBook) {
+        Book book = userBook.getBook();
+        ProgressSnapshot progress = ProgressCalculator.calculate(
+                userBook.getStatus(),
+                userBook.getProgressPages(),
+                userBook.getProgressPercent(),
+                book.getPageCount()
+        );
+        BookDto bookDto = bookService.getById(book.getId());
+        return new UserBookDto(
+                userBook.getId(),
+                bookDto,
+                userBook.getStatus(),
+                userBook.getRating(),
+                progress.progressPages(),
+                progress.pageCount(),
+                progress.progressPercent(),
+                progress.progressDisplay(),
+                userBook.getStartedAt(),
+                userBook.getFinishedAt(),
+                List.of(),
+                userBook.getCreatedAt(),
+                userBook.getUpdatedAt()
+        );
+    }
+
     private UserBookDto toDto(UserBook userBook) {
         Book book = userBook.getBook();
         ProgressSnapshot progress = ProgressCalculator.calculate(
@@ -464,8 +523,5 @@ public class LibraryServiceImpl implements LibraryService {
                 note.getCreatedAt(),
                 note.getUpdatedAt()
         );
-    }
-
-    private record CursorPosition(Instant updatedAt, UUID id) {
     }
 }

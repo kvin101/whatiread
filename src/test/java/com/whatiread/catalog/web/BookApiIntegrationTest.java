@@ -40,7 +40,7 @@ class BookApiIntegrationTest extends AbstractApiIntegrationTest {
                                   "pageCount": 688
                                 }
                                 """.formatted(AUTHOR_FRANK_HERBERT)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -132,5 +132,16 @@ class BookApiIntegrationTest extends AbstractApiIntegrationTest {
         mockMvc.perform(get(ApiPaths.BOOKS_SUGGEST).param("q", "dune"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void bookExternalPreviewRejectsUnsupportedId() throws Exception {
+        AuthSession session = registerUser();
+
+        mockMvc.perform(get(ApiPaths.BOOKS_EXTERNAL_PREVIEW)
+                        .with(bearer(session.accessToken()))
+                        .param("externalId", "unsupported-id"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath(JSON_PATH_DETAIL).value("Book preview not available"));
     }
 }

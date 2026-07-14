@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
-import { Clock, Sparkles } from 'lucide-react'
+import { Inbox, Send, ThumbsUp } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { friendsApi } from '../api/friends'
 import { libraryApi } from '../api/library'
@@ -8,6 +8,7 @@ import { shelvesApi } from '../api/shelves'
 import type { Book, Page, RecommendationTargetType, Shelf, UserBook } from '../api/types'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
+import { ScrollablePage } from '../components/layout/ScrollablePage'
 import { PageHeader } from '../components/layout/PageHeader'
 import { RecommendationCard } from '../components/recommendations/RecommendationCard'
 import { RecommendModal } from '../components/recommendations/RecommendModal'
@@ -18,6 +19,10 @@ import { copy } from '../lib/copy'
 import { formatAuthors } from '../lib/utils'
 import { QUERY_KEYS } from '../lib/constants'
 import { getApiErrorMessage } from '../lib/api'
+import {
+  appendArrayQueryItems,
+  removeArrayQueryItem,
+} from '../lib/queryCache'
 
 const LIBRARY_PAGE_SIZE = 50
 
@@ -106,25 +111,27 @@ export function RecommendationsPage() {
     return [...byId.values()]
   }, [libraryPages])
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.recommendations.all })
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shelves.all })
-  }
-
   const acceptMutation = useMutation({
     mutationFn: recommendationsApi.accept,
-    onSuccess: invalidate,
+    onSuccess: (_, recId) => {
+      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.inbox, recId)
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.forRec })
+    },
   })
 
   const dismissMutation = useMutation({
     mutationFn: recommendationsApi.dismiss,
-    onSuccess: invalidate,
+    onSuccess: (_, recId) => {
+      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.inbox, recId)
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: recommendationsApi.delete,
-    onSuccess: invalidate,
+    onSuccess: (_, recId) => {
+      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.inbox, recId)
+      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.sent, recId)
+    },
   })
 
   const createMutation = useMutation({
@@ -142,10 +149,10 @@ export function RecommendationsPage() {
         shelfIds: payload.shelfIds,
         message: payload.message || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (created) => {
       setRecommendOpen(false)
       setError(null)
-      invalidate()
+      appendArrayQueryItems(queryClient, QUERY_KEYS.recommendations.sent, created)
     },
     onError: (e) => setError(getApiErrorMessage(e, 'Rec failed to launch.')),
   })
@@ -164,80 +171,81 @@ export function RecommendationsPage() {
   }
 
   return (
+    <ScrollablePage>
     <div>
       <PageHeader
-        eyebrow="Social reading"
         title={copy.recommendations.title}
-        description={copy.recommendations.description}
         action={<Button onClick={() => setRecommendOpen(true)}>{copy.recommendations.recommend}</Button>}
       />
 
-      {(inboxLoading || sentLoading) && <BookLoaderCenter className="mt-8" />}
-
-      {!inboxLoading && (
-        <section className="mt-8">
-          <h2 className="section-header-manga">{copy.recommendations.inbox(inbox.length)}</h2>
-          {inbox.length === 0 ? (
-            <EmptyState
-              className="mt-4 list-enter"
-              icon={Sparkles}
-              title={copy.recommendations.emptyInbox.title}
-              description={copy.recommendations.emptyInbox.description}
-            />
-          ) : (
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {inbox.map((rec, i) => (
-                <li key={rec.id} style={{ animationDelay: `${i * 30}ms` }}>
-                  <RecommendationCard
-                    rec={rec}
-                    variant="inbox"
-                    acceptPending={acceptMutation.isPending}
-                    dismissPending={dismissMutation.isPending}
-                    deletePending={deleteMutation.isPending}
-                    onAccept={() => acceptMutation.mutate(rec.id)}
-                    onDismiss={() => dismissMutation.mutate(rec.id)}
-                    onDelete={() => handleDelete(rec.id, 'inbox')}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      {(inboxLoading || sentLoading) && inbox.length === 0 && sent.length === 0 && (
+        <BookLoaderCenter className="mt-5" />
       )}
 
-      {!sentLoading && (
-        <section className="mt-12">
-          <h2 className="section-header-manga">{copy.recommendations.sent(sent.length)}</h2>
-          {sent.length === 0 ? (
-            <EmptyState
-              className="mt-4 list-enter"
-              icon={Clock}
-              title={copy.recommendations.emptySent.title}
-              description={copy.recommendations.emptySent.description}
-            />
-          ) : (
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {sent.map((rec, i) => (
-                <li key={rec.id} style={{ animationDelay: `${i * 30}ms` }}>
-                  <RecommendationCard
-                    rec={rec}
-                    variant="sent"
-                    deletePending={deleteMutation.isPending}
-                    onDelete={() => handleDelete(rec.id, 'sent')}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      <section className="mt-5">
+        <h2 className="section-header-manga">{copy.recommendations.inbox(inbox.length)}</h2>
+        {inboxLoading ? (
+          <BookLoaderCenter className="mt-4 py-8" />
+        ) : inbox.length === 0 ? (
+          <EmptyState
+            className="mt-4 list-enter"
+            icon={Inbox}
+            title={copy.recommendations.emptyInbox.title}
+            description={copy.recommendations.emptyInbox.description}
+          />
+        ) : (
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {inbox.map((rec, i) => (
+              <li key={rec.id} style={{ animationDelay: `${i * 30}ms` }}>
+                <RecommendationCard
+                  rec={rec}
+                  variant="inbox"
+                  acceptPending={acceptMutation.isPending}
+                  dismissPending={dismissMutation.isPending}
+                  deletePending={deleteMutation.isPending}
+                  onAccept={() => acceptMutation.mutate(rec.id)}
+                  onDismiss={() => dismissMutation.mutate(rec.id)}
+                  onDelete={() => handleDelete(rec.id, 'inbox')}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <section className="mt-12">
+      <section className="mt-6">
+        <h2 className="section-header-manga">{copy.recommendations.sent(sent.length)}</h2>
+        {sentLoading ? (
+          <BookLoaderCenter className="mt-4 py-8" />
+        ) : sent.length === 0 ? (
+          <EmptyState
+            className="mt-4 list-enter"
+            icon={Send}
+            title={copy.recommendations.emptySent.title}
+            description={copy.recommendations.emptySent.description}
+          />
+        ) : (
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {sent.map((rec, i) => (
+              <li key={rec.id} style={{ animationDelay: `${i * 30}ms` }}>
+                <RecommendationCard
+                  rec={rec}
+                  variant="sent"
+                  deletePending={deleteMutation.isPending}
+                  onDelete={() => handleDelete(rec.id, 'sent')}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-6">
         <h2 className="section-header-manga">{copy.recommendations.suggested}</h2>
         {suggestions.length === 0 ? (
           <EmptyState
             className="mt-4"
-            icon={Sparkles}
+            icon={ThumbsUp}
             title={copy.recommendations.emptySuggestions.title}
             description={copy.recommendations.emptySuggestions.description}
           />
@@ -280,5 +288,6 @@ export function RecommendationsPage() {
 
       {confirmDialog}
     </div>
+    </ScrollablePage>
   )
 }

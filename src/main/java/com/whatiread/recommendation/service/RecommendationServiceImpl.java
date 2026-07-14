@@ -3,6 +3,7 @@ package com.whatiread.recommendation.service;
 import com.whatiread.catalog.api.BookDto;
 import com.whatiread.catalog.domain.Book;
 import com.whatiread.catalog.port.BookPersistencePort;
+import com.whatiread.catalog.service.BookMapper;
 import com.whatiread.catalog.service.BookService;
 import com.whatiread.config.BusinessMetrics;
 import com.whatiread.identity.domain.User;
@@ -49,6 +50,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationSuggestionRepository suggestionRepository;
     private final UserLookupService userLookupService;
     private final BookPersistencePort bookPersistencePort;
+    private final BookMapper bookMapper;
     private final BookService bookService;
     private final LibraryService libraryService;
     private final FriendshipService friendshipService;
@@ -62,6 +64,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             RecommendationSuggestionRepository suggestionRepository,
             UserLookupService userLookupService,
             BookPersistencePort bookPersistencePort,
+            BookMapper bookMapper,
             BookService bookService,
             LibraryService libraryService,
             FriendshipService friendshipService,
@@ -74,6 +77,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.suggestionRepository = suggestionRepository;
         this.userLookupService = userLookupService;
         this.bookPersistencePort = bookPersistencePort;
+        this.bookMapper = bookMapper;
         this.bookService = bookService;
         this.libraryService = libraryService;
         this.friendshipService = friendshipService;
@@ -344,12 +348,13 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         orderedBookIds.addAll(suggestionRepository.findFriendHighlyRatedBookIds(userId, SUGGESTION_LIMIT));
 
+        Set<UUID> ownedBookIds = libraryService.ownedBookIdsAmong(userId, orderedBookIds);
         List<RecommendationSuggestionDto> suggestions = new ArrayList<>();
         for (UUID bookId : orderedBookIds) {
             if (suggestions.size() >= SUGGESTION_LIMIT) {
                 break;
             }
-            if (libraryService.hasBook(userId, bookId)) {
+            if (ownedBookIds.contains(bookId)) {
                 continue;
             }
             BookDto book = bookService.getById(bookId);
@@ -373,7 +378,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private RecommendationDto toDto(Recommendation recommendation, Map<UUID, Integer> shelfBookCounts) {
         User fromUser = recommendation.getFromUser();
         BookDto book = recommendation.getTargetType() == RecommendationTargetType.BOOK && recommendation.getBook() != null
-                ? toBookDto(recommendation.getBook())
+                ? bookMapper.toDto(recommendation.getBook())
                 : null;
         ShelfDto shelf = recommendation.getTargetType() == RecommendationTargetType.SHELF && recommendation.getShelf() != null
                 ? toShelfDto(
@@ -397,27 +402,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private RecommendationUserDto toUserDto(User user) {
         return new RecommendationUserDto(user.getId(), user.getDisplayName(), user.getAvatarUrl());
-    }
-
-    private BookDto toBookDto(Book book) {
-        return new BookDto(
-                book.getId(),
-                book.getTitle(),
-                book.getSubtitle(),
-                book.getAuthors(),
-                book.getIsbn(),
-                book.getPageCount(),
-                book.getCoverUrl(),
-                book.getDescription(),
-                book.getSource(),
-                book.getExternalId(),
-                book.getAverageRating(),
-                book.getRatingCount(),
-                book.getCreatedBy(),
-                book.getUpdatedBy(),
-                book.getCreatedAt(),
-                book.getUpdatedAt()
-        );
     }
 
     private ShelfDto toShelfDto(Shelf shelf, int bookCount) {

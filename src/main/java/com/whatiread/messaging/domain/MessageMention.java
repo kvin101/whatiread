@@ -50,6 +50,10 @@ public class MessageMention {
         return id;
     }
 
+    public Message getMessage() {
+        return message;
+    }
+
     public MentionType getMentionType() {
         return mentionType;
     }

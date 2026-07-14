@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Ban,
   Check,
-  ChevronRight,
   Clock,
-  UserMinus,
+  Handshake,
+  ShieldBan,
   UserPlus,
   Users,
   UserX,
@@ -19,42 +18,25 @@ import { UserSuggestField } from '../components/users/UserSuggestField'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
+import { ScrollablePage } from '../components/layout/ScrollablePage'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Label } from '../components/ui/Input'
 import { copy } from '../lib/copy'
-import { displayName, initials } from '../lib/utils'
+import { displayName } from '../lib/utils'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
 import { getApiErrorMessage } from '../lib/api'
-
-function UserAvatar({
-  name,
-  variant = 'default',
-}: {
-  name: string
-  variant?: 'default' | 'danger' | 'pending'
-}) {
-  const styles = {
-    default: 'bg-sage/15 text-sage ring-sage/20',
-    danger: 'bg-danger/15 text-danger ring-danger/20',
-    pending: 'bg-accent-dim text-accent ring-accent/20',
-  }
-  return (
-    <div
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-2 ${styles[variant]}`}
-    >
-      {initials(name)}
-    </div>
-  )
-}
+import { UserAvatar } from '../components/ui/UserAvatar'
 
 function RequestCard({
   name,
+  avatarUrl,
   subtitle,
   badge,
   children,
 }: {
   name: string
+  avatarUrl?: string | null
   subtitle?: string
   badge?: string
   children: React.ReactNode
@@ -62,7 +44,7 @@ function RequestCard({
   return (
     <li className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-paper-elevated px-4 py-3 card-hover list-enter">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <UserAvatar name={name} variant="pending" />
+        <UserAvatar name={name} avatarUrl={avatarUrl} variant="pending" />
         <div className="min-w-0">
           <p className="font-medium text-ink truncate">{name}</p>
           {subtitle && <p className="text-xs text-ink-muted truncate">{subtitle}</p>}
@@ -118,7 +100,7 @@ export function FriendsPage() {
       setError(null)
       invalidate()
     },
-    onError: (e) => setError(getApiErrorMessage(e, 'Request bounced — try another reader.')),
+    onError: (e) => setError(getApiErrorMessage(e, 'Could not send request.')),
   })
 
   const acceptMutation = useMutation({
@@ -154,19 +136,18 @@ export function FriendsPage() {
   const loading = friendsLoading || incomingLoading || outgoingLoading || blockedLoading
 
   return (
+    <ScrollablePage>
     <div>
       {dialog}
       <PageHeader
-        eyebrow="Social shelf"
         title={copy.friends.title}
-        description={copy.friends.description}
       />
 
-      {loading && <BookLoaderCenter className="mt-8" />}
+      {loading && <BookLoaderCenter className="mt-5" />}
 
       {!loading && (
         <>
-          <section className="mt-8 rounded-2xl border border-border bg-paper-elevated p-6 shadow-sm list-enter">
+          <section className="mt-5 rounded-xl border border-border bg-paper-elevated p-4 shadow-sm list-enter">
             <Label htmlFor="friendSearch">{copy.friends.inviteLabel}</Label>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <UserSuggestField
@@ -195,18 +176,18 @@ export function FriendsPage() {
             {error && <p className="mt-2 text-sm text-danger">{error}</p>}
           </section>
 
-          <section className="mt-10">
+          <section className="mt-6">
             <h2 className="section-header-manga">
               {copy.friends.incoming} ({incoming.length})
             </h2>
             {incoming.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-muted">No pending requests — your DMs are safe for now.</p>
+              <p className="mt-3 text-sm text-ink-muted">No pending requests.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {incoming.map((req) => {
                   const name = displayName(req.requester)
                   return (
-                    <RequestCard key={req.id} name={name} subtitle={req.requester.email} badge="Incoming">
+                    <RequestCard key={req.id} name={name} avatarUrl={req.requester.avatarUrl} subtitle={req.requester.email} badge="Incoming">
                       <Button size="sm" className="comic-btn-quiet shadow-none" onClick={() => acceptMutation.mutate(req.id)}>
                         <Check className="h-4 w-4" />
                         Accept
@@ -234,18 +215,18 @@ export function FriendsPage() {
             )}
           </section>
 
-          <section className="mt-10">
+          <section className="mt-6">
             <h2 className="section-header-manga">
               {copy.friends.outgoing} ({outgoing.length})
             </h2>
             {outgoing.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-muted">No outgoing requests waiting on a reply.</p>
+              <p className="mt-3 text-sm text-ink-muted">No sent requests.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {outgoing.map((req) => {
                   const name = displayName(req.addressee)
                   return (
-                    <RequestCard key={req.id} name={name} subtitle={req.addressee.email} badge="Sent">
+                    <RequestCard key={req.id} name={name} avatarUrl={req.addressee.avatarUrl} subtitle={req.addressee.email} badge="Sent">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -267,7 +248,7 @@ export function FriendsPage() {
             )}
           </section>
 
-          <section className="mt-10">
+          <section className="mt-6">
             <h2 className="section-header-manga">
               {copy.friends.yourFriends(friends.length)}
             </h2>
@@ -292,18 +273,17 @@ export function FriendsPage() {
                         to={APP_ROUTES.userProfile(f.id)}
                         className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-90"
                       >
-                        <UserAvatar name={name} />
+                        <UserAvatar name={name} avatarUrl={f.avatarUrl} />
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-ink truncate">{name}</p>
                           <p className="text-xs text-ink-muted truncate">{f.email}</p>
-                          <p className="text-xs text-accent mt-0.5">Peek their shelves →</p>
+                          <p className="text-xs text-accent mt-0.5">View profile</p>
                         </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" />
                       </Link>
-                      <div className="flex shrink-0 flex-col gap-1">
+                      <div className="flex shrink-0 gap-1">
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant="secondary"
                           aria-label={`Unfriend ${name}`}
                           onClick={async () => {
                             const ok = await confirm({
@@ -315,7 +295,8 @@ export function FriendsPage() {
                             if (ok) unfriendMutation.mutate(f.id)
                           }}
                         >
-                          <UserMinus className="h-4 w-4" />
+                          <Handshake className="h-4 w-4" />
+                          <span className="hidden sm:inline">Unfriend</span>
                         </Button>
                         <Button
                           size="sm"
@@ -331,7 +312,8 @@ export function FriendsPage() {
                             if (ok) blockMutation.mutate(f.id)
                           }}
                         >
-                          <Ban className="h-4 w-4" />
+                          <ShieldBan className="h-4 w-4" />
+                          <span className="hidden sm:inline">Block</span>
                         </Button>
                       </div>
                     </li>
@@ -341,7 +323,7 @@ export function FriendsPage() {
             )}
           </section>
 
-          <section className="mt-10">
+          <section className="mt-6">
             <h2 className="section-header-manga">
               {copy.friends.blocked(blocked.length)}
             </h2>
@@ -357,7 +339,7 @@ export function FriendsPage() {
                       className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4 card-hover list-enter"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <UserAvatar name={name} variant="danger" />
+                        <UserAvatar name={name} avatarUrl={b.avatarUrl} variant="danger" />
                         <div className="min-w-0">
                           <p className="font-medium text-ink truncate">{name}</p>
                           <p className="text-xs text-ink-muted">Blocked</p>
@@ -381,5 +363,6 @@ export function FriendsPage() {
         </>
       )}
     </div>
+    </ScrollablePage>
   )
 }

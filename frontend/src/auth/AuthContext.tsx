@@ -8,9 +8,17 @@ import {
   type ReactNode,
 } from 'react'
 import { authApi } from '../api/auth'
-import { setAuthRefreshListener, setTokens, getRefreshToken } from '../api/client'
+import {
+  setAuthRefreshListener,
+  setTokens,
+  getRefreshToken,
+  getAccessToken,
+  tryRefreshSession,
+  startProactiveTokenRefresh,
+} from '../api/client'
 import type { AuthResponse, User } from '../api/types'
 import { loadStoredAuth, saveStoredAuth } from './storage'
+import { STORAGE_KEYS } from '../lib/constants'
 
 type AuthContextValue = {
   user: User | null
@@ -67,6 +75,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEYS.auth) {
+        return
+      }
+      if (!event.newValue) {
+        setTokens(null)
+        setUser(null)
+        return
+      }
+      try {
+        const parsed = JSON.parse(event.newValue) as {
+          accessToken: string
+          refreshToken: string
+          user: User
+        }
+        setTokens({
+          accessToken: parsed.accessToken,
+          refreshToken: parsed.refreshToken,
+        })
+        setUser(parsed.user)
+      } catch {
+        /* ignore */
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  useEffect(() => {
     const stored = loadStoredAuth()
     if (stored) {
       setTokens({
@@ -80,7 +117,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(fresh)
           saveStoredAuth({ ...stored, user: fresh })
         })
-        .catch(() => {
+        .catch(async () => {
+          const refreshed = await tryRefreshSession()
+          if (refreshed) {
+            try {
+              const fresh = await authApi.me()
+              setUser(fresh)
+              saveStoredAuth({
+                accessToken: getAccessToken() ?? stored.accessToken,
+                refreshToken: getRefreshToken() ?? stored.refreshToken,
+                user: fresh,
+              })
+              return
+            } catch {
+              /* fall through */
+            }
+          }
           saveStoredAuth(null)
           setTokens(null)
           setUser(null)
@@ -90,6 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+    return startProactiveTokenRefresh()
+  }, [user])
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await authApi.login({ email, password })

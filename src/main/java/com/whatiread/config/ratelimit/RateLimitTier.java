@@ -6,7 +6,6 @@ package com.whatiread.config.ratelimit;
 public enum RateLimitTier {
 
     STRICT_AUTH("strict-auth"),
-    STRICT_IMPORT("strict-import"),
     SEARCH("search"),
     WRITE("write"),
     READ("read"),

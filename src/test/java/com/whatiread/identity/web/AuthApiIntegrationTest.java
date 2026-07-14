@@ -6,9 +6,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.whatiread.shared.security.SecurityConstants;
 import com.whatiread.shared.web.ApiPaths;
 import com.whatiread.support.AbstractApiIntegrationTest;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
@@ -169,7 +176,27 @@ class AuthApiIntegrationTest extends AbstractApiIntegrationTest {
     @Test
     void meRequiresAuthentication() throws Exception {
         mockMvc.perform(get(ApiPaths.ME))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void expiredAccessTokenReturnsUnauthorized() throws Exception {
+        AuthSession session = registerUser();
+        Instant now = Instant.now();
+        String expiredToken = Jwts.builder()
+                .subject(session.userId().toString())
+                .claim(SecurityConstants.JWT_CLAIM_EMAIL, session.email())
+                .claim(SecurityConstants.JWT_CLAIM_TYPE, SecurityConstants.JWT_TYPE_ACCESS)
+                .claim(SecurityConstants.JWT_CLAIM_TOKEN_VERSION, 0L)
+                .issuedAt(Date.from(now.minusSeconds(3600)))
+                .expiration(Date.from(now.minusSeconds(1800)))
+                .signWith(Keys.hmacShaKeyFor(
+                        "test-secret-key-minimum-thirty-two-characters-long".getBytes(StandardCharsets.UTF_8)
+                ))
+                .compact();
+
+        mockMvc.perform(get(ApiPaths.ME).header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

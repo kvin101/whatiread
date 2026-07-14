@@ -30,11 +30,14 @@ import com.whatiread.social.service.FriendshipService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -178,8 +181,20 @@ public class MessagingServiceImpl implements MessagingService {
     @Override
     @Transactional(readOnly = true)
     public List<ConversationDto> listConversations(UUID userId) {
-        return conversationRepository.findByParticipant(userId).stream()
-                .map(conversation -> toConversationDto(conversation, userId))
+        List<Conversation> conversations = conversationRepository.findByParticipant(userId);
+        if (conversations.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> conversationIds = conversations.stream().map(Conversation::getId).toList();
+        Map<UUID, MessageDto> lastMessages = loadLastMessages(conversationIds);
+        Map<UUID, Long> unreadCounts = loadUnreadCounts(conversationIds, userId);
+        return conversations.stream()
+                .map(conversation -> toConversationDto(
+                        conversation,
+                        userId,
+                        lastMessages.get(conversation.getId()),
+                        unreadCounts.getOrDefault(conversation.getId(), 0L)
+                ))
                 .sorted((left, right) -> {
                     Instant leftAt = left.lastMessage() != null ? left.lastMessage().sentAt() : left.createdAt();
                     Instant rightAt = right.lastMessage() != null ? right.lastMessage().sentAt() : right.createdAt();
@@ -216,9 +231,12 @@ public class MessagingServiceImpl implements MessagingService {
         }
         boolean hasMore = messages.size() > pageSize;
         List<Message> page = hasMore ? messages.subList(0, pageSize) : messages;
+        Map<UUID, List<MessageMentionDto>> mentionsByMessage = loadMentionsByMessageId(
+                page.stream().map(Message::getId).toList()
+        );
         List<MessageDto> dtos = new ArrayList<>(page.size());
         for (Message message : page) {
-            dtos.add(toMessageDto(message));
+            dtos.add(toMessageDto(message, mentionsByMessage.getOrDefault(message.getId(), List.of())));
         }
         Collections.reverse(dtos);
         String nextCursor = null;
@@ -380,7 +398,15 @@ public class MessagingServiceImpl implements MessagingService {
                 conversation.getId(),
                 viewerId
         );
+        return toConversationDto(conversation, viewerId, lastMessage, unread);
+    }
 
+    private ConversationDto toConversationDto(
+            Conversation conversation,
+            UUID viewerId,
+            MessageDto lastMessage,
+            long unread
+    ) {
         if (conversation.isDirect()) {
             UUID otherId = conversation.otherParticipantId(viewerId);
             User other = userLookupService.getPersistenceReference(otherId);
@@ -434,10 +460,54 @@ public class MessagingServiceImpl implements MessagingService {
     }
 
     private MessageDto toMessageDto(Message message) {
-        List<MessageMentionDto> mentions = messageMentionRepository.findByMessage_Id(message.getId()).stream()
-                .map(m -> new MessageMentionDto(m.getMentionType(), m.getTargetId(), m.getLabel()))
-                .toList();
-        return toMessageDto(message, mentions);
+        return toMessageDto(message, loadMentionsByMessageId(List.of(message.getId()))
+                .getOrDefault(message.getId(), List.of()));
+    }
+
+    private Map<UUID, MessageDto> loadLastMessages(List<UUID> conversationIds) {
+        if (conversationIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Message> messages = messageRepository.findLatestForConversations(conversationIds);
+        Map<UUID, List<MessageMentionDto>> mentionsByMessage = loadMentionsByMessageId(
+                messages.stream().map(Message::getId).toList()
+        );
+        Map<UUID, MessageDto> result = new HashMap<>();
+        for (Message message : messages) {
+            result.put(
+                    message.getConversation().getId(),
+                    toMessageDto(message, mentionsByMessage.getOrDefault(message.getId(), List.of()))
+            );
+        }
+        return result;
+    }
+
+    private Map<UUID, Long> loadUnreadCounts(List<UUID> conversationIds, UUID userId) {
+        if (conversationIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Long> counts = new HashMap<>();
+        messageRepository.countUnreadByConversations(conversationIds, userId)
+                .forEach(view -> counts.put(view.getConversationId(), view.getUnreadCount()));
+        return counts;
+    }
+
+    private Map<UUID, List<MessageMentionDto>> loadMentionsByMessageId(List<UUID> messageIds) {
+        if (messageIds.isEmpty()) {
+            return Map.of();
+        }
+        return messageMentionRepository.findByMessage_IdIn(messageIds).stream()
+                .collect(Collectors.groupingBy(
+                        mention -> mention.getMessage().getId(),
+                        Collectors.mapping(
+                                mention -> new MessageMentionDto(
+                                        mention.getMentionType(),
+                                        mention.getTargetId(),
+                                        mention.getLabel()
+                                ),
+                                Collectors.toList()
+                        )
+                ));
     }
 
     private MessageDto toMessageDto(Message message, List<MessageMentionDto> mentions) {

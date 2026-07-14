@@ -40,7 +40,6 @@ import com.whatiread.shelf.domain.ShelfMemberRole;
 import com.whatiread.shelf.domain.ShelfShareLink;
 import com.whatiread.shelf.domain.ShelfVisibility;
 import com.whatiread.shelf.repository.ShelfBookRepository;
-import com.whatiread.shelf.repository.ShelfBookCountView;
 import com.whatiread.shelf.repository.ShelfMemberRepository;
 import com.whatiread.shelf.repository.ShelfRepository;
 import com.whatiread.shelf.repository.ShelfShareLinkRepository;
@@ -52,7 +51,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -71,12 +72,12 @@ public class ShelfServiceImpl implements ShelfService {
     private final ShelfShareLinkRepository shelfShareLinkRepository;
     private final UserLookupService userLookupService;
     private final LibraryService libraryService;
+    private final ShelfBookQueryService shelfBookQueryService;
     private final UserBookPersistencePort userBookPersistencePort;
     private final ShelfCloneService shelfCloneService;
     private final ShelfAccessService shelfAccessService;
     private final FriendshipService friendshipService;
     private final ShelfEventService shelfEventService;
-    private final ExploreShelfReadModelService exploreShelfReadModelService;
     private final BusinessMetrics businessMetrics;
     private final CacheManager cacheManager;
 
@@ -87,12 +88,12 @@ public class ShelfServiceImpl implements ShelfService {
             ShelfShareLinkRepository shelfShareLinkRepository,
             UserLookupService userLookupService,
             LibraryService libraryService,
+            ShelfBookQueryService shelfBookQueryService,
             UserBookPersistencePort userBookPersistencePort,
             ShelfCloneService shelfCloneService,
             ShelfAccessService shelfAccessService,
             FriendshipService friendshipService,
             ShelfEventService shelfEventService,
-            ExploreShelfReadModelService exploreShelfReadModelService,
             BusinessMetrics businessMetrics,
             CacheManager cacheManager
     ) {
@@ -102,12 +103,12 @@ public class ShelfServiceImpl implements ShelfService {
         this.shelfShareLinkRepository = shelfShareLinkRepository;
         this.userLookupService = userLookupService;
         this.libraryService = libraryService;
+        this.shelfBookQueryService = shelfBookQueryService;
         this.userBookPersistencePort = userBookPersistencePort;
         this.shelfCloneService = shelfCloneService;
         this.shelfAccessService = shelfAccessService;
         this.friendshipService = friendshipService;
         this.shelfEventService = shelfEventService;
-        this.exploreShelfReadModelService = exploreShelfReadModelService;
         this.businessMetrics = businessMetrics;
         this.cacheManager = cacheManager;
     }
@@ -123,10 +124,6 @@ public class ShelfServiceImpl implements ShelfService {
             case READ -> "Read";
             case DNF -> "Did Not Finish";
         };
-    }
-
-    private void syncExploreModel(Shelf shelf) {
-        exploreShelfReadModelService.sync(shelf);
     }
 
     @Override
@@ -148,7 +145,6 @@ public class ShelfServiceImpl implements ShelfService {
 
         shelfMemberRepository.save(new ShelfMember(shelf, owner, ShelfMemberRole.OWNER, null));
         shelfEventService.record(shelf, userId, ShelfEventType.SHELF_CREATED, Map.of("name", shelf.getName()));
-        syncExploreModel(shelf);
         businessMetrics.recordShelfCreated();
         return toDto(shelf, userId);
     }
@@ -157,7 +153,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Transactional(readOnly = true)
     public List<ShelfDto> listMine(UUID userId) {
         List<Shelf> shelves = shelfMemberRepository.findShelvesForUser(userId);
-        Map<UUID, Integer> bookCounts = loadBookCounts(shelves);
+        Map<UUID, Integer> bookCounts = shelfBookQueryService.loadBookCounts(shelves);
         return shelves.stream()
                 .map(shelf -> toDto(shelf, userId, bookCounts))
                 .toList();
@@ -167,7 +163,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Transactional(readOnly = true)
     public List<ShelfDto> listPublicByOwner(UUID ownerId) {
         List<Shelf> shelves = shelfRepository.findByOwner_IdAndVisibilityOrderBySortOrderAsc(ownerId, ShelfVisibility.PUBLIC);
-        Map<UUID, Integer> bookCounts = loadBookCounts(shelves);
+        Map<UUID, Integer> bookCounts = shelfBookQueryService.loadBookCounts(shelves);
         return shelves.stream()
                 .map(shelf -> toDto(shelf, null, bookCounts))
                 .toList();
@@ -180,7 +176,7 @@ public class ShelfServiceImpl implements ShelfService {
             return listMine(viewerId);
         }
         List<Shelf> shelves = shelfRepository.findByOwner_IdOrderBySortOrderAsc(ownerId);
-        Map<UUID, Integer> bookCounts = loadBookCounts(shelves);
+        Map<UUID, Integer> bookCounts = shelfBookQueryService.loadBookCounts(shelves);
         return shelves.stream()
                 .filter(shelf -> shelfAccessService.appearsOnProfile(shelf, viewerId))
                 .map(shelf -> toDto(shelf, viewerId, bookCounts))
@@ -192,15 +188,27 @@ public class ShelfServiceImpl implements ShelfService {
     public Page<ExploreShelfDto> exploreFeed(UUID viewerId, Pageable pageable) {
         List<UUID> friendIds = friendshipService.listFriendIds(viewerId);
         Page<Shelf> page = shelfRepository.findExploreFeed(viewerId, friendIds.size(), friendIds, pageable);
-        Map<UUID, Integer> bookCounts = loadBookCounts(page.getContent());
-        return page.map(shelf -> toExploreDto(shelf, resolveExploreSource(shelf, viewerId), bookCounts));
+        Map<UUID, Integer> bookCounts = shelfBookQueryService.loadBookCounts(page.getContent());
+        var memberShelfIds = loadMemberShelfIds(page.getContent(), viewerId);
+        return page.map(shelf -> toExploreDto(
+                shelf,
+                resolveExploreSource(shelf, memberShelfIds),
+                bookCounts
+        ));
     }
 
-    private ExploreShelfSource resolveExploreSource(Shelf shelf, UUID viewerId) {
-        boolean isMember = shelfMemberRepository
-                .findByShelf_IdAndUser_Id(shelf.getId(), viewerId)
-                .isPresent();
-        if (isMember) {
+    private Set<UUID> loadMemberShelfIds(List<Shelf> shelves, UUID viewerId) {
+        if (shelves.isEmpty()) {
+            return Set.of();
+        }
+        List<UUID> shelfIds = shelves.stream().map(Shelf::getId).toList();
+        return shelfMemberRepository.findByShelf_IdInAndUser_Id(shelfIds, viewerId).stream()
+                .map(member -> member.getShelf().getId())
+                .collect(Collectors.toSet());
+    }
+
+    private ExploreShelfSource resolveExploreSource(Shelf shelf, Set<UUID> memberShelfIds) {
+        if (memberShelfIds.contains(shelf.getId())) {
             return ExploreShelfSource.SHARED;
         }
         if (shelf.getVisibility() == ShelfVisibility.FRIENDS) {
@@ -260,7 +268,6 @@ public class ShelfServiceImpl implements ShelfService {
         } else {
             shelfEventService.record(saved, userId, ShelfEventType.SHELF_UPDATED, Map.of());
         }
-        syncExploreModel(saved);
         evictPublicShelfCache(saved.getOwner().getId(), saved.getSlug());
         return toDto(saved, userId);
     }
@@ -270,9 +277,7 @@ public class ShelfServiceImpl implements ShelfService {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireOwner(shelf, userId);
         evictPublicShelfCache(shelf.getOwner().getId(), shelf.getSlug());
-        UUID shelfIdToRemove = shelf.getId();
         shelfRepository.delete(shelf);
-        exploreShelfReadModelService.remove(shelfIdToRemove);
     }
 
     @Override
@@ -421,7 +426,7 @@ public class ShelfServiceImpl implements ShelfService {
         if (shelfIds == null || shelfIds.isEmpty()) {
             return Map.of();
         }
-        return loadBookCountsByIds(shelfIds);
+        return shelfBookQueryService.loadBookCountsByIds(shelfIds);
     }
 
     private ShelfDto cloneShelfInternal(
@@ -530,9 +535,11 @@ public class ShelfServiceImpl implements ShelfService {
     public SharedShelfDto getSharedShelf(UUID token) {
         Shelf shelf = resolveShelfFromShareToken(token);
         UUID ownerId = shelf.getOwner().getId();
-        Map<UUID, UserBookDto> booksById = loadUserBooks(ownerId);
-        List<ShelfBookDto> books = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelf.getId()).stream()
+        List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelf.getId()).stream()
                 .filter(shelfAccessService::canViewShelfBookViaShareLink)
+                .toList();
+        Map<UUID, UserBookDto> booksById = shelfBookQueryService.loadShelfUserBooks(ownerId, entries);
+        List<ShelfBookDto> books = entries.stream()
                 .map(entry -> toBookDto(entry, booksById, ownerId, null))
                 .toList();
         return new SharedShelfDto(toDto(shelf, null), books);
@@ -565,8 +572,9 @@ public class ShelfServiceImpl implements ShelfService {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireView(shelf, userId);
         UUID ownerId = shelf.getOwner().getId();
-        Map<UUID, UserBookDto> booksById = loadUserBooks(ownerId);
-        return shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId).stream()
+        List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId);
+        Map<UUID, UserBookDto> booksById = shelfBookQueryService.loadShelfUserBooks(ownerId, entries);
+        return entries.stream()
                 .map(entry -> toBookDto(entry, booksById, ownerId, userId))
                 .toList();
     }
@@ -580,9 +588,11 @@ public class ShelfServiceImpl implements ShelfService {
             throw new ForbiddenException("Shelf is not public");
         }
         UUID shelfOwnerId = shelf.getOwner().getId();
-        Map<UUID, UserBookDto> booksById = loadUserBooks(shelfOwnerId);
-        return shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelf.getId()).stream()
+        List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelf.getId()).stream()
                 .filter(sb -> shelfAccessService.canViewShelfBook(sb, null))
+                .toList();
+        Map<UUID, UserBookDto> booksById = shelfBookQueryService.loadShelfUserBooks(shelfOwnerId, entries);
+        return entries.stream()
                 .map(entry -> toBookDto(entry, booksById, shelfOwnerId, null))
                 .toList();
     }
@@ -784,7 +794,7 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     private ShelfDto toDto(Shelf shelf, UUID viewerId) {
-        return toDto(shelf, viewerId, loadBookCounts(List.of(shelf)));
+        return toDto(shelf, viewerId, shelfBookQueryService.loadBookCounts(List.of(shelf)));
     }
 
     private ShelfDto toDto(Shelf shelf, UUID viewerId, Map<UUID, Integer> bookCounts) {
@@ -807,7 +817,7 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     private ExploreShelfDto toExploreDto(Shelf shelf, ExploreShelfSource source) {
-        return toExploreDto(shelf, source, loadBookCounts(List.of(shelf)));
+        return toExploreDto(shelf, source, shelfBookQueryService.loadBookCounts(List.of(shelf)));
     }
 
     private ExploreShelfDto toExploreDto(Shelf shelf, ExploreShelfSource source, Map<UUID, Integer> bookCounts) {
@@ -889,28 +899,4 @@ public class ShelfServiceImpl implements ShelfService {
         return toBookDto(shelfBook, userBook, ownerId, viewerId);
     }
 
-    private Map<UUID, Integer> loadBookCounts(Collection<Shelf> shelves) {
-        return loadBookCountsByIds(shelves.stream().map(Shelf::getId).toList());
-    }
-
-    private Map<UUID, Integer> loadBookCountsByIds(Collection<UUID> shelfIds) {
-        if (shelfIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<UUID, Integer> counts = new HashMap<>();
-        shelfBookRepository.countBooksByShelfIds(shelfIds).forEach(view ->
-                counts.put(view.getShelfId(), Math.toIntExact(view.getBookCount()))
-        );
-        for (UUID shelfId : shelfIds) {
-            if (!counts.containsKey(shelfId)) {
-                counts.put(shelfId, Math.toIntExact(shelfBookRepository.countByShelf_Id(shelfId)));
-            }
-        }
-        return counts;
-    }
-
-    private Map<UUID, UserBookDto> loadUserBooks(UUID ownerId) {
-        return libraryService.listAllForUser(ownerId).stream()
-                .collect(java.util.stream.Collectors.toMap(UserBookDto::id, dto -> dto));
-    }
 }

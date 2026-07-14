@@ -4,8 +4,10 @@ import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.domain.UserBook;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +31,16 @@ public interface UserBookRepository extends JpaRepository<UserBook, UUID> {
 
     @EntityGraph(attributePaths = "book")
     Optional<UserBook> findByUserIdAndBook_Id(UUID userId, UUID bookId);
+
+    @Query("""
+            SELECT ub.book.id FROM UserBook ub
+            WHERE ub.user.id = :userId
+            AND ub.book.id IN :bookIds
+            """)
+    Set<UUID> findOwnedBookIdsByUserIdAndBookIdIn(
+            @Param("userId") UUID userId,
+            @Param("bookIds") Collection<UUID> bookIds
+    );
 
     @Query("""
             SELECT ub FROM UserBook ub JOIN FETCH ub.book b
@@ -155,4 +167,8 @@ public interface UserBookRepository extends JpaRepository<UserBook, UUID> {
             nativeQuery = true
     )
     int countBooksReadInYear(@Param("userId") UUID userId, @Param("year") short year);
+
+    @EntityGraph(attributePaths = "book")
+    @Query("SELECT ub FROM UserBook ub WHERE ub.user.id = :userId AND ub.id IN :ids")
+    List<UserBook> findOwnedByUserIdAndIdIn(@Param("userId") UUID userId, @Param("ids") Collection<UUID> ids);
 }

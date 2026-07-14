@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { FilterChips } from '../components/ui/FilterChips'
 import { BookSkeletonGrid } from '../components/ui/BookLoader'
+import { ListPageLayout } from '../components/layout/ListPageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
@@ -74,112 +75,116 @@ export function LibraryPage() {
   }))
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Home base"
-        title={copy.library.title}
-        description={copy.library.description(data?.totalElements ?? 0)}
-        action={
-          <Button onClick={() => setSearchOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {copy.library.addBook}
-          </Button>
-        }
-      />
+    <>
+      <ListPageLayout
+        toolbar={
+          <>
+            <PageHeader
+              title={copy.library.title}
+              description={copy.library.description(data?.totalElements ?? 0)}
+              action={
+                <Button onClick={() => setSearchOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  {copy.library.addBook}
+                </Button>
+              }
+            />
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <FilterChips
-          options={filterOptions}
-          value={filter}
-          onChange={setFilter}
-          label="Reading status"
-        />
-        <div className="flex items-center gap-2">
-          <label htmlFor="shelfFilter" className="text-sm text-ink-muted shrink-0">
-            Shelf
-          </label>
-          <Select
-            id="shelfFilter"
-            value={shelfFilter}
-            onChange={(e) => setShelfFilter(e.target.value)}
-            className="min-w-[160px]"
-          >
-            <option value="ALL">All shelves</option>
-            {myShelves.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.icon ? `${s.icon} ` : ''}{s.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-
-      <div className="mt-4 relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted pointer-events-none" />
-        <Input
-          type="search"
-          placeholder={copy.library.searchPlaceholder}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-          aria-label="Search library"
-        />
-      </div>
-
-      {publicShelves.length > 0 && (
-        <section className="mt-10">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="font-display text-xl font-semibold text-ink">{copy.library.discover}</h2>
-            <Link
-              to={APP_ROUTES.explore}
-              className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline shrink-0"
-            >
-              <Compass className="h-4 w-4" />
-              {copy.library.seeAll}
-            </Link>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {publicShelves.map((s) => (
-              <ShelfCard
-                key={s.id}
-                shelf={s}
-                to={APP_ROUTES.shelf(s.id)}
-                subtitle={`${s.source === 'PUBLIC' ? 'Public' : s.source === 'FRIEND' ? 'Friend' : 'Shared'} · ${s.ownerDisplayName}`}
-                actions={<CloneShelfButton shelf={s} />}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <FilterChips
+                options={filterOptions}
+                value={filter}
+                onChange={setFilter}
+                label="Reading status"
               />
+              <div className="flex items-center gap-2">
+                <label htmlFor="shelfFilter" className="text-sm text-ink-muted shrink-0">
+                  Shelf
+                </label>
+                <Select
+                  id="shelfFilter"
+                  value={shelfFilter}
+                  onChange={(e) => setShelfFilter(e.target.value)}
+                  className="min-w-[160px]"
+                >
+                  <option value="ALL">All shelves</option>
+                  {myShelves.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div className="relative mt-4 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted pointer-events-none" />
+              <Input
+                type="search"
+                placeholder={copy.library.searchPlaceholder}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+                aria-label="Search library"
+              />
+            </div>
+          </>
+        }
+      >
+        {publicShelves.length > 0 && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="font-display text-xl font-semibold text-ink">{copy.library.discover}</h2>
+              <Link
+                to={APP_ROUTES.explore}
+                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline shrink-0"
+              >
+                <Compass className="h-4 w-4" />
+                {copy.library.seeAll}
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {publicShelves.map((s) => (
+                <ShelfCard
+                  key={s.id}
+                  shelf={s}
+                  to={APP_ROUTES.shelf(s.id)}
+                  subtitle={`${s.source === 'PUBLIC' ? 'Public' : s.source === 'FRIEND' ? 'Friend' : 'Shared'} · ${s.ownerDisplayName}`}
+                  actions={<CloneShelfButton shelf={s} />}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {isLoading && <BookSkeletonGrid />}
+
+        {!isLoading && entries.length === 0 && (
+          <EmptyState
+            icon={BookMarked}
+            title={searchTrimmed ? copy.library.noResults.title : copy.library.empty.title}
+            description={
+              searchTrimmed ? copy.library.noResults.description : copy.library.empty.description
+            }
+            action={
+              !searchTrimmed ? (
+                <Button onClick={() => setSearchOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  {copy.library.empty.cta}
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {!isLoading && entries.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {entries.map((entry) => (
+              <BookCard key={entry.id} entry={entry} onClick={() => setSelectedId(entry.id)} />
             ))}
           </div>
-        </section>
-      )}
-
-      {isLoading && <BookSkeletonGrid className="mt-8" />}
-
-      {!isLoading && entries.length === 0 && (
-        <EmptyState
-          className="mt-8"
-          icon={BookMarked}
-          title={searchTrimmed ? copy.library.noResults.title : copy.library.empty.title}
-          description={
-            searchTrimmed ? copy.library.noResults.description : copy.library.empty.description
-          }
-          action={
-            !searchTrimmed ? (
-              <Button onClick={() => setSearchOpen(true)}>
-                <Plus className="h-4 w-4" />
-                {copy.library.empty.cta}
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-
-      {!isLoading && entries.length > 0 && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map((entry) => (
-            <BookCard key={entry.id} entry={entry} onClick={() => setSelectedId(entry.id)} />
-          ))}
-        </div>
-      )}
+        )}
+      </ListPageLayout>
 
       <BookSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} onAdded={() => refetch()} />
       <BookDetailDrawer
@@ -189,6 +194,6 @@ export function LibraryPage() {
         onUpdated={() => refetch()}
         onDeleted={() => refetch()}
       />
-    </div>
+    </>
   )
 }

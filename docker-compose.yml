@@ -42,15 +42,15 @@ services:
       context: .
       dockerfile: Dockerfile
     image: whatiread-api:${IMAGE_TAG:-latest}
-    user: "10001:10001"
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
-      - /tmp/avatars:uid=10001,gid=10001,mode=0755
     expose:
       - "8080"
+    volumes:
+      - avatars-data:/data/avatars
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DATABASE_URL: jdbc:postgresql://db:5432/whatiread
@@ -69,7 +69,7 @@ services:
       MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
       MEILISEARCH_LOAD_SEED_ON_STARTUP: ${MEILISEARCH_LOAD_SEED_ON_STARTUP:-true}
       MEILISEARCH_LOAD_USERS_ON_STARTUP: ${MEILISEARCH_LOAD_USERS_ON_STARTUP:-true}
-      WHATIREAD_AVATARS_DIRECTORY: /tmp/avatars
+      WHATIREAD_AVATARS_DIRECTORY: /data/avatars
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0}
     depends_on:
       db:
@@ -197,5 +197,7 @@ services:
 volumes:
   pgdata:
   meilisearch_data:
+  avatars-data:
+    name: avatars-data
   prometheus_data:
   grafana_data:

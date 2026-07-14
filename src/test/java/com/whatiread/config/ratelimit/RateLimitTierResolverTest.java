@@ -23,7 +23,6 @@ class RateLimitTierResolverTest {
         return Stream.of(
                 Arguments.of(ApiPaths.AUTH + LOGIN_PATH, "POST", RateLimitTier.STRICT_AUTH),
                 Arguments.of(ApiPaths.SETUP + "/complete", "POST", RateLimitTier.STRICT_AUTH),
-                Arguments.of(ApiPaths.IMPORT_GOODREADS, "POST", RateLimitTier.STRICT_IMPORT),
                 Arguments.of(ApiPaths.BOOKS_SEARCH, "GET", RateLimitTier.SEARCH),
                 Arguments.of(ApiPaths.BOOKS_SUGGEST, "GET", RateLimitTier.SEARCH),
                 Arguments.of(ApiPaths.BOOKS_SEARCH + "/extra", "GET", RateLimitTier.SEARCH),
@@ -66,11 +65,6 @@ class RateLimitTierResolverTest {
     @Test
     void authTierTakesPrecedenceOverWrite() {
         assertThat(resolver.resolve(request("POST", ApiPaths.AUTH + LOGIN_PATH))).contains(RateLimitTier.STRICT_AUTH);
-    }
-
-    @Test
-    void importTierTakesPrecedenceOverWrite() {
-        assertThat(resolver.resolve(request("POST", ApiPaths.IMPORT_GOODREADS))).contains(RateLimitTier.STRICT_IMPORT);
     }
 
     @Test

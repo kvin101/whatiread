@@ -1,8 +1,9 @@
 package com.whatiread.social.service;
 
-import com.whatiread.social.repository.FriendshipRepository;
+import com.whatiread.config.CacheConfig;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,9 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FriendshipServiceImpl implements FriendshipService {
 
-    private final FriendshipRepository friendshipRepository;
+    private final com.whatiread.social.repository.FriendshipRepository friendshipRepository;
 
-    public FriendshipServiceImpl(FriendshipRepository friendshipRepository) {
+    public FriendshipServiceImpl(com.whatiread.social.repository.FriendshipRepository friendshipRepository) {
         this.friendshipRepository = friendshipRepository;
     }
 
@@ -25,6 +26,7 @@ public class FriendshipServiceImpl implements FriendshipService {
     }
 
     @Override
+    @Cacheable(cacheNames = CacheConfig.FRIEND_IDS, key = "#userId")
     public List<UUID> listFriendIds(UUID userId) {
         return friendshipRepository.findFriendIdsByUserId(userId);
     }

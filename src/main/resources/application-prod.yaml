@@ -45,8 +45,6 @@ resilience4j:
       # Stricter production defaults for internet-facing self-hosts.
       strict-auth:
         limitForPeriod: 10
-      strict-import:
-        limitForPeriod: 5
       search:
         limitForPeriod: 30
       write:
