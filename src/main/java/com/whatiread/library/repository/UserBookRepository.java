@@ -141,9 +141,21 @@ public interface UserBookRepository extends JpaRepository<UserBook, UUID> {
             SELECT ub FROM UserBook ub
             WHERE ub.user.id = :userId
             AND (:status IS NULL OR ub.status = :status)
+            ORDER BY ub.updatedAt DESC, ub.id DESC
+            """)
+    List<UserBook> findFirstKeysetPageByUser(
+            @Param("userId") UUID userId,
+            @Param("status") ReadingStatus status,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = "book")
+    @Query("""
+            SELECT ub FROM UserBook ub
+            WHERE ub.user.id = :userId
+            AND (:status IS NULL OR ub.status = :status)
             AND (
-                :cursorTime IS NULL
-                OR ub.updatedAt < :cursorTime
+                ub.updatedAt < :cursorTime
                 OR (ub.updatedAt = :cursorTime AND ub.id < :cursorId)
             )
             ORDER BY ub.updatedAt DESC, ub.id DESC

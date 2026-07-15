@@ -13,10 +13,8 @@ node_modules/
 target/
 **/dist/
 
-# Local env and secrets
-.env
-.env.*
-!.env.example
+# Local env overrides
+.env.local
 
 # Docker runtime config (mounted at compose time)
 docker/

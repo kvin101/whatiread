@@ -181,13 +181,22 @@ public class LibraryServiceImpl implements LibraryService {
         }
         int pageSize = Math.min(Math.max(limit, 1), 100);
         KeysetCursor.Parts position = KeysetCursor.decode(cursor);
-        List<UserBook> rows = userBookRepository.findKeysetByUser(
-                userId,
-                status,
-                position.updatedAt(),
-                position.id(),
-                PageRequest.of(0, pageSize + 1)
-        );
+        List<UserBook> rows;
+        if (position.updatedAt() == null) {
+            rows = userBookRepository.findFirstKeysetPageByUser(
+                    userId,
+                    status,
+                    PageRequest.of(0, pageSize + 1)
+            );
+        } else {
+            rows = userBookRepository.findKeysetByUser(
+                    userId,
+                    status,
+                    position.updatedAt(),
+                    position.id(),
+                    PageRequest.of(0, pageSize + 1)
+            );
+        }
         boolean hasMore = rows.size() > pageSize;
         List<UserBook> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
         List<UserBookDto> items = dedupeByWork(pageRows).stream().map(this::toDto).toList();

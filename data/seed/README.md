@@ -1,22 +1,5 @@
 # Book suggest seed
 
-Static autocomplete data for Meilisearch (not stored in Postgres).
+Meilisearch autocomplete titles. Shipped in `src/main/resources/book-suggest/book-suggest.json` and loaded on API startup when `MEILISEARCH_LOAD_SEED_ON_STARTUP=true`.
 
-## Files
-
-| File | Purpose |
-|------|---------|
-| `books-clean.csv` | **Canonical seed** — `title` only (English, deduplicated) |
-| `book-suggest.json` | Same data as JSON for Meilisearch import |
-| `books_1.Best_Books_Ever.csv` | Raw source dump (optional, local only) |
-
-## Regenerate
-
-```bash
-python3 scripts/prepare-book-suggest-seed.py
-cp data/seed/book-suggest.json src/main/resources/book-suggest/book-suggest.json
-docker volume rm whatiread_meilisearch_data
-docker compose up --build -d
-```
-
-Meilisearch must be running for book suggest in production (`MEILISEARCH_ENABLED=true`). Local `docker compose` includes the Meilisearch service automatically.
+To change titles, edit `data/seed/book-suggest.json` and copy it to `src/main/resources/book-suggest/book-suggest.json`, then rebuild.

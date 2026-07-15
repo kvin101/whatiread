@@ -45,7 +45,10 @@ export function SettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [registrationError, setRegistrationError] = useState<string | null>(null)
-  const usernameCheck = useUsernameAvailability(profileForm.username, { currentUser: true })
+  const usernameCheck = useUsernameAvailability(profileForm.username, {
+    currentUser: true,
+    savedUsername: user?.username ?? undefined,
+  })
   const name = user ? displayName(user) : ''
 
   const { data: setup } = useQuery({
@@ -148,7 +151,11 @@ export function SettingsPage() {
                   maxLength={30}
                   pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
                 />
-                <UsernameAvailabilityHint value={profileForm.username} check={usernameCheck} />
+                <UsernameAvailabilityHint
+                  value={profileForm.username}
+                  check={usernameCheck}
+                  savedUsername={user?.username ?? undefined}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="firstName">First name</Label>

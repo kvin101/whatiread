@@ -10,6 +10,8 @@ type Options = {
   enabled?: boolean
   /** When set, uses authenticated /me check and allows keeping the current handle. */
   currentUser?: boolean
+  /** When unchanged from this value, skip the availability check (e.g. profile settings). */
+  savedUsername?: string
 }
 
 export function useUsernameAvailability(raw: string, options: Options = {}) {
@@ -22,6 +24,10 @@ export function useUsernameAvailability(raw: string, options: Options = {}) {
   }, [raw])
 
   const meetsMinLength = debounced.length >= UsernameUtils.MIN_LENGTH
+  const unchanged =
+    options.savedUsername != null &&
+    options.savedUsername !== '' &&
+    UsernameUtils.equals(debounced, options.savedUsername)
 
   return useQuery({
     queryKey: [...QUERY_KEYS.usernameAvailability(debounced, options.currentUser)],
@@ -29,7 +35,7 @@ export function useUsernameAvailability(raw: string, options: Options = {}) {
       options.currentUser
         ? accountApi.checkUsernameAvailable(debounced)
         : authApi.checkUsernameAvailable(debounced),
-    enabled: enabled && meetsMinLength,
+    enabled: enabled && meetsMinLength && !unchanged,
     staleTime: 30_000,
     retry: false,
   })

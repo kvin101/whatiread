@@ -1,3 +1,5 @@
+# WhatIRead stack. Configure via .env, then: docker compose up --build -d
+
 services:
   db:
     image: postgres:16.8-alpine
@@ -21,8 +23,10 @@ services:
 
   meilisearch:
     image: getmeili/meilisearch:v1.12
+    security_opt:
+      - no-new-privileges:true
     environment:
-      MEILI_ENV: development
+      MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_NO_ANALYTICS: "true"
       MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-dev-master-key}
     volumes:
@@ -38,10 +42,10 @@ services:
     restart: unless-stopped
 
   api:
+    image: ${API_IMAGE:-whatiread-api:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: Dockerfile
-    image: whatiread-api:${IMAGE_TAG:-latest}
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -61,9 +65,9 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
-      OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-true}
-      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
-      WHATIREAD_LOKI_URL: ${WHATIREAD_LOKI_URL:-http://loki:3100/loki/api/v1/push}
+      OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-false}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      WHATIREAD_LOKI_URL: ${WHATIREAD_LOKI_URL:-}
       MEILISEARCH_HOST: ${MEILISEARCH_HOST:-http://meilisearch:7700}
       MEILISEARCH_API_KEY: ${MEILISEARCH_API_KEY:-${MEILISEARCH_MASTER_KEY:-dev-master-key}}
       MEILISEARCH_ENABLED: ${MEILISEARCH_ENABLED:-true}
@@ -87,12 +91,12 @@ services:
     restart: unless-stopped
 
   web:
+    image: ${WEB_IMAGE:-whatiread-web:${IMAGE_TAG:-latest}}
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ""
-    image: whatiread-web:${IMAGE_TAG:-latest}
     user: nginx
     security_opt:
       - no-new-privileges:true
@@ -115,9 +119,9 @@ services:
     cpus: 0.5
     restart: unless-stopped
 
+  # Optional — set COMPOSE_PROFILES in .env (obs-prometheus, obs-jaeger, obs-otel, obs-loki, obs-grafana)
   otel-collector:
-    profiles:
-      - observability
+    profiles: [obs-otel, observability]
     image: otel/opentelemetry-collector-contrib:0.100.0
     security_opt:
       - no-new-privileges:true
@@ -128,21 +132,24 @@ services:
       OTEL_TAIL_SAMPLING_CRITICAL_PERCENT: ${OTEL_TAIL_SAMPLING_CRITICAL_PERCENT:-50}
       OTEL_TAIL_SAMPLING_NORMAL_PERCENT: ${OTEL_TAIL_SAMPLING_NORMAL_PERCENT:-5}
     volumes:
-      - ./docker/otel/otel-collector-config.yml:/etc/otel-collector-config.yml
+      - ./docker/otel/otel-collector-config.yml:/etc/otel-collector-config.yml:ro
     ports:
-      - "127.0.0.1:4317:4317"   # OTLP gRPC receiver
-      - "127.0.0.1:4318:4318"   # OTLP HTTP receiver
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     depends_on:
-      - jaeger
+      jaeger:
+        condition: service_started
+        required: false
     mem_limit: 256m
     restart: unless-stopped
 
   prometheus:
-    profiles:
-      - observability
+    profiles: [obs-prometheus, observability]
     image: prom/prometheus:v2.51.2
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
@@ -150,20 +157,22 @@ services:
     restart: unless-stopped
 
   jaeger:
-    profiles:
-      - observability
+    profiles: [obs-jaeger, observability]
     image: jaegertracing/all-in-one:1.56
+    security_opt:
+      - no-new-privileges:true
     environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      COLLECTOR_OTLP_ENABLED: "true"
     ports:
-      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:16686:16686"
     mem_limit: 256m
     restart: unless-stopped
 
   loki:
-    profiles:
-      - observability
+    profiles: [obs-loki, observability]
     image: grafana/loki:2.9.5
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "127.0.0.1:3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
@@ -171,27 +180,47 @@ services:
     restart: unless-stopped
 
   grafana:
-    profiles:
-      - observability
+    profiles: [obs-grafana, observability]
     image: grafana/grafana:10.4.2
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana_data:/var/lib/grafana
     environment:
-      # Default: login required. Set GRAFANA_ANONYMOUS=true only on trusted local networks.
-      - GF_AUTH_ANONYMOUS_ENABLED=${GRAFANA_ANONYMOUS:-false}
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_DISABLE_LOGIN:-false}
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS:-false}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: ${GRAFANA_DISABLE_LOGIN:-false}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - prometheus
-      - jaeger
-      - loki
+      prometheus:
+        condition: service_started
+        required: false
+      jaeger:
+        condition: service_started
+        required: false
+      loki:
+        condition: service_started
+        required: false
     mem_limit: 256m
+    restart: unless-stopped
+
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:latest
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+    ports:
+      - "127.0.0.1:8087:8080"
+    mem_limit: 128m
     restart: unless-stopped
 
 volumes:

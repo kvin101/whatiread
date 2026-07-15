@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import type { UsernameAvailability } from '../../api/types'
+import { UsernameUtils } from '../../lib/username'
 
 type Props = {
   value: string
@@ -7,9 +8,11 @@ type Props = {
     isFetching: boolean
     data?: UsernameAvailability
   }
+  /** When the field matches this saved handle, do not show an availability result. */
+  savedUsername?: string
 }
 
-export function UsernameAvailabilityHint({ value, check }: Props) {
+export function UsernameAvailabilityHint({ value, check, savedUsername }: Props) {
   const trimmed = value.trim()
 
   if (!trimmed || trimmed.length < 3) {
@@ -18,6 +21,10 @@ export function UsernameAvailabilityHint({ value, check }: Props) {
         3–30 characters; start with a letter; letters, numbers, underscores only
       </p>
     )
+  }
+
+  if (savedUsername && UsernameUtils.equals(trimmed, savedUsername)) {
+    return null
   }
 
   if (check.isFetching) {
