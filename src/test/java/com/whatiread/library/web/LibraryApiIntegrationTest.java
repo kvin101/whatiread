@@ -368,4 +368,32 @@ class LibraryApiIntegrationTest extends AbstractApiIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath(JSON_PATH_DETAIL).value("Library entry not found"));
     }
+
+    @Test
+    void listCursorFirstPageWithLimitOnly() throws Exception {
+        addToLibrary(owner, bookId);
+
+        mockMvc.perform(get(ApiPaths.LIBRARY)
+                        .param("cursor", " ")
+                        .param("limit", "24")
+                        .with(bearer(owner.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.hasMore").exists());
+    }
+
+    @Test
+    void listSortByTitleAsc() throws Exception {
+        UUID bookB = createBook(owner, "Beta Book " + UUID.randomUUID(), "Author", 100);
+        UUID bookA = createBook(owner, "Alpha Book " + UUID.randomUUID(), "Author", 100);
+        addToLibrary(owner, bookB);
+        addToLibrary(owner, bookA);
+
+        mockMvc.perform(get(ApiPaths.LIBRARY)
+                        .param("sort", "TITLE_ASC")
+                        .with(bearer(owner.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(JSON_PATH_CONTENT, hasSize(2)))
+                .andExpect(jsonPath("$.content[0].book.title").value(notNullValue()));
+    }
 }

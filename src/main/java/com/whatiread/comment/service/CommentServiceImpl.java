@@ -65,7 +65,7 @@ public class CommentServiceImpl implements CommentService {
     @Transactional(readOnly = true)
     public Page<CommentDto> list(CommentTargetType targetType, UUID targetId, UUID viewerId, Pageable pageable) {
         commentTargetAccessService.requireCanView(targetType, targetId, viewerId);
-        return commentRepository.findByTargetTypeAndTargetIdOrderByCreatedAtAsc(targetType, targetId, pageable)
+        return commentRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(targetType, targetId, pageable)
                 .map(this::toDto);
     }
 

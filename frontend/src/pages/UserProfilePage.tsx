@@ -1,10 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutGrid, MessageCircle, Settings, UserPlus, UserX } from 'lucide-react'
+import { LayoutGrid, MessageCircle, Settings, Target, UserPlus, UserX } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { usersApi } from '../api/users'
 import { friendsApi } from '../api/friends'
 import { conversationsApi } from '../api/conversations'
+import { libraryApi } from '../api/library'
+import { readingApi } from '../api/reading'
 import { ShelfCard } from '../components/shelves/ShelfCard'
+import { BookCard } from '../components/books/BookCard'
+import { BookDetailDrawer } from '../components/books/BookDetailDrawer'
+import { ReadingGoalRing } from '../components/home/ReadingGoalRing'
+import { ReadingStatsPanel } from '../components/home/ReadingStatsPanel'
+import { StreakBadge } from '../components/home/StreakBadge'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter, BookSkeletonGrid } from '../components/ui/BookLoader'
@@ -16,6 +23,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
 import { ScrollablePage } from '../components/layout/ScrollablePage'
+import { useState } from 'react'
 
 export function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>()
@@ -23,6 +31,8 @@ export function UserProfilePage() {
   const queryClient = useQueryClient()
   const { user: me } = useAuth()
   const { confirm, dialog } = useConfirm()
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
+  const year = new Date().getFullYear()
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: QUERY_KEYS.profile.detail(userId!),
@@ -34,6 +44,26 @@ export function UserProfilePage() {
     queryKey: QUERY_KEYS.profile.shelves(userId!),
     queryFn: () => usersApi.shelves(userId!),
     enabled: !!userId,
+  })
+
+  const isSelf = profile?.self ?? userId === me?.id
+
+  const { data: readingPage } = useQuery({
+    queryKey: QUERY_KEYS.library.reading,
+    queryFn: () => libraryApi.list({ status: 'READING', size: 6, sort: 'UPDATED_DESC' }),
+    enabled: !!userId && isSelf,
+  })
+
+  const { data: finishedPage } = useQuery({
+    queryKey: [...QUERY_KEYS.library.all, 'finished-profile'],
+    queryFn: () => libraryApi.list({ status: 'READ', size: 12, sort: 'FINISHED_DESC' }),
+    enabled: !!userId && isSelf,
+  })
+
+  const { data: stats } = useQuery({
+    queryKey: QUERY_KEYS.reading.stats(year),
+    queryFn: () => readingApi.getStats(year),
+    enabled: !!userId && isSelf,
   })
 
   const unfriendMutation = useMutation({
@@ -80,7 +110,8 @@ export function UserProfilePage() {
   }
 
   const name = profile ? displayName(profile) : 'Reader'
-  const isSelf = profile?.self ?? userId === me?.id
+  const readingEntries = readingPage?.content ?? []
+  const finishedEntries = finishedPage?.content ?? []
 
   return (
     <ScrollablePage>
@@ -110,6 +141,12 @@ export function UserProfilePage() {
                 <LayoutGrid className="h-4 w-4" />
                 {shelves.length} {shelves.length === 1 ? 'shelf' : 'shelves'}
               </span>
+              {isSelf && stats && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-sm text-ink-muted">
+                  <Target className="h-4 w-4" />
+                  {stats.booksRead} read in {year}
+                </span>
+              )}
               {profile?.friend && (
                 <span className="rounded-full bg-sage/15 px-3 py-1 text-sm font-medium text-sage">Friend</span>
               )}
@@ -209,6 +246,38 @@ export function UserProfilePage() {
         </div>
       </section>
 
+      {isSelf && (
+        <section className="mt-6 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <ReadingGoalRing />
+            <StreakBadge />
+          </div>
+          <ReadingStatsPanel />
+        </section>
+      )}
+
+      {isSelf && readingEntries.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold text-ink">Reading now</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {readingEntries.map((entry) => (
+              <BookCard key={entry.id} entry={entry} compact onClick={() => setSelectedBookId(entry.id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {isSelf && finishedEntries.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold text-ink">Recently finished</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {finishedEntries.map((entry) => (
+              <BookCard key={entry.id} entry={entry} compact onClick={() => setSelectedBookId(entry.id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="mt-6">
         <h2 className="text-sm font-semibold text-ink">Shelves</h2>
         {isLoading && <BookSkeletonGrid count={3} className="mt-4" />}
@@ -237,6 +306,16 @@ export function UserProfilePage() {
           </div>
         )}
       </section>
+
+      <BookDetailDrawer
+        userBookId={selectedBookId}
+        open={!!selectedBookId}
+        onClose={() => setSelectedBookId(null)}
+        onUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.reading })
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.all })
+        }}
+      />
     </div>
     </ScrollablePage>
   )

@@ -1,5 +1,7 @@
 package com.whatiread.catalog.service;
 
+import com.whatiread.catalog.author.domain.Author;
+import com.whatiread.catalog.author.service.AuthorService;
 import com.whatiread.catalog.api.BookDto;
 import com.whatiread.catalog.api.BookSearchResultDto;
 import com.whatiread.catalog.api.CreateBookRequest;
@@ -21,6 +23,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -33,6 +36,7 @@ public class BookServiceImpl implements BookService {
     private final UserBookRatingProvider userBookRatingProvider;
     private final CacheManager cacheManager;
     private final BookMapper bookMapper;
+    private final AuthorService authorService;
 
     public BookServiceImpl(
             BookRepository bookRepository,
@@ -40,7 +44,8 @@ public class BookServiceImpl implements BookService {
             OpenLibraryClient openLibraryClient,
             UserBookRatingProvider userBookRatingProvider,
             CacheManager cacheManager,
-            BookMapper bookMapper
+            BookMapper bookMapper,
+            @Lazy AuthorService authorService
     ) {
         this.bookRepository = bookRepository;
         this.bookMetadataService = bookMetadataService;
@@ -48,6 +53,7 @@ public class BookServiceImpl implements BookService {
         this.userBookRatingProvider = userBookRatingProvider;
         this.cacheManager = cacheManager;
         this.bookMapper = bookMapper;
+        this.authorService = authorService;
     }
 
     private static CreateBookRequest toCreateRequest(Book book) {
@@ -108,7 +114,9 @@ public class BookServiceImpl implements BookService {
                     Book book = new Book();
                     bookMetadataService.applyOpenLibraryDoc(book, response.docs().getFirst());
                     book.setIsbn(isbn);
-                    return bookMapper.toDto(bookRepository.save(book));
+                    Book saved = bookRepository.save(book);
+                    syncBookAuthors(saved);
+                    return bookMapper.toDto(saved);
                 });
     }
 
@@ -152,10 +160,11 @@ public class BookServiceImpl implements BookService {
 
     private BookDto findOrCreateFromRequest(CreateBookRequest request) {
         Optional<Book> existing = findExistingBook(request);
-        if (existing.isPresent()) {
-            return bookMapper.toDto(enrichIfNeeded(existing.get(), request));
-        }
-        return bookMapper.toDto(createNewBook(request));
+        Book book = existing.isPresent()
+                ? enrichIfNeeded(existing.get(), request)
+                : createNewBook(request);
+        syncBookAuthors(book);
+        return bookMapper.toDto(book);
     }
 
     private Optional<Book> findExistingBook(CreateBookRequest request) {
@@ -233,6 +242,17 @@ public class BookServiceImpl implements BookService {
         var cache = cacheManager.getCache(CacheConfig.BOOK_BY_ID);
         if (cache != null) {
             cache.evict(bookId);
+        }
+    }
+
+    private void syncBookAuthors(Book book) {
+        List<String> names = book.getAuthors();
+        if (names == null || names.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < names.size(); i++) {
+            Author author = authorService.findOrCreateByName(names.get(i));
+            authorService.linkBookAuthor(book, author, i);
         }
     }
 

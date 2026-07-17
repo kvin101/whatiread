@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookMarked, Trash2 } from 'lucide-react'
+import { BookMarked, ExternalLink, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { libraryApi } from '../../api/library'
 import { ApiError } from '../../api/client'
 import type { ReadingStatus, UserBook } from '../../api/types'
 import { STATUS_LABELS, QUERY_KEYS } from '../../lib/constants'
-import { formatAuthors } from '../../lib/utils'
 import { CommentThread } from '../comments/CommentThread'
+import { AuthorLink } from './AuthorLink'
 import { BookLoader } from '../ui/BookLoader'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
@@ -18,8 +19,10 @@ import { BookCover } from './BookCover'
 import { StarRating } from './StarRating'
 import { getApiErrorMessage } from '../../lib/api'
 import { setQueryData } from '../../lib/queryCache'
+import { APP_ROUTES } from '../../api/paths'
 
 const STATUSES: ReadingStatus[] = ['TO_READ', 'READING', 'READ', 'DNF']
+type DrawerTab = 'details' | 'notes' | 'comments'
 
 export function BookDetailDrawer({
   userBookId,
@@ -42,6 +45,7 @@ export function BookDetailDrawer({
   const [progressPages, setProgressPages] = useState('')
   const [noteBody, setNoteBody] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<DrawerTab>('details')
 
   const sharedContext = !!viewEntry
   const bookId = viewEntry?.book.id
@@ -82,6 +86,7 @@ export function BookDetailDrawer({
   useEffect(() => {
     if (!open) {
       setError(null)
+      setTab('details')
     }
   }, [open])
 
@@ -199,7 +204,17 @@ export function BookDetailDrawer({
           <div className="flex gap-4 manga-panel rounded-2xl p-4 halftone-overlay">
             <BookCover title={displayEntry.book.title} coverUrl={displayEntry.book.coverUrl} size="lg" />
             <div>
-              <p className="text-sm text-ink-muted panel-text">{formatAuthors(displayEntry.book.authors)}</p>
+              <Link
+                to={APP_ROUTES.book(displayEntry.book.id)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View book page
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+              <p className="text-sm text-ink-muted panel-text mt-1">
+                <AuthorLink names={displayEntry.book.authors} />
+              </p>
               {displayEntry.book.pageCount && (
                 <p className="mt-1 text-sm text-ink-muted">{displayEntry.book.pageCount} pages</p>
               )}
@@ -237,7 +252,11 @@ export function BookDetailDrawer({
               </section>
 
               {commentTargetId && commentTargetType && (
-                <CommentThread targetType={commentTargetType} targetId={commentTargetId} />
+                <CommentThread
+                  targetType={commentTargetType}
+                  targetId={commentTargetId}
+                  listMaxHeightClass="max-h-48"
+                />
               )}
 
               <Button
@@ -255,6 +274,23 @@ export function BookDetailDrawer({
             <>
               {error && <p className="text-sm text-danger">{error}</p>}
 
+              <div className="flex gap-1 border-b border-border pb-1">
+                {(['details', 'notes', 'comments'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTab(t)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                      tab === t ? 'bg-accent/15 text-accent' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {tab === 'details' && (
+                <>
               <section>
                 <Label>Reading status</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -271,6 +307,16 @@ export function BookDetailDrawer({
                   ))}
                 </div>
               </section>
+
+              {fetchedEntry.status !== 'READ' && (
+                <Button
+                  size="sm"
+                  disabled={updateMutation.isPending}
+                  onClick={() => updateMutation.mutate({ status: 'READ', progressPages: fetchedEntry.book.pageCount ?? undefined })}
+                >
+                  Mark finished
+                </Button>
+              )}
 
               <section>
                 <Label>Your rating</Label>
@@ -310,6 +356,26 @@ export function BookDetailDrawer({
                 </section>
               )}
 
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Remove from library?',
+                    description: 'Remove this book from your library?',
+                    confirmLabel: copy.confirm.remove,
+                    variant: 'danger',
+                  })
+                  if (ok) deleteMutation.mutate()
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove from library
+              </Button>
+                </>
+              )}
+
+              {tab === 'notes' && (
               <section>
                 <Label>Notes</Label>
                 <ul className="mt-2 space-y-2">
@@ -361,27 +427,15 @@ export function BookDetailDrawer({
                   Save note
                 </Button>
               </section>
-
-              {commentTargetId && commentTargetType && (
-                <CommentThread targetType={commentTargetType} targetId={commentTargetId} />
               )}
 
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: 'Remove from library?',
-                    description: 'Remove this book from your library?',
-                    confirmLabel: copy.confirm.remove,
-                    variant: 'danger',
-                  })
-                  if (ok) deleteMutation.mutate()
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove from library
-              </Button>
+              {tab === 'comments' && commentTargetId && commentTargetType && (
+                <CommentThread
+                  targetType={commentTargetType}
+                  targetId={commentTargetId}
+                  listMaxHeightClass="max-h-48"
+                />
+              )}
             </>
           ) : null}
         </div>

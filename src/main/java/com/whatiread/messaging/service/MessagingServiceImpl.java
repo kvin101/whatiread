@@ -15,6 +15,7 @@ import com.whatiread.messaging.domain.ConversationParticipantRole;
 import com.whatiread.messaging.domain.ConversationType;
 import com.whatiread.messaging.domain.Message;
 import com.whatiread.messaging.domain.MessageMention;
+import com.whatiread.messaging.domain.MentionType;
 import com.whatiread.messaging.repository.ConversationParticipantRepository;
 import com.whatiread.messaging.repository.ConversationRepository;
 import com.whatiread.messaging.repository.MessageMentionRepository;
@@ -22,6 +23,8 @@ import com.whatiread.messaging.repository.MessageRepository;
 import com.whatiread.messaging.util.ConversationParticipants;
 import com.whatiread.messaging.util.MessageCursor;
 import com.whatiread.shared.api.CursorPage;
+import com.whatiread.notification.service.NotificationService;
+import com.whatiread.shared.util.DisplayNames;
 import com.whatiread.shared.exception.ForbiddenException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.shelf.service.ShelfService;
@@ -59,6 +62,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final ShelfService shelfService;
     private final BookPersistencePort bookPersistencePort;
     private final BusinessMetrics businessMetrics;
+    private final NotificationService notificationService;
 
     public MessagingServiceImpl(
             ConversationRepository conversationRepository,
@@ -71,7 +75,8 @@ public class MessagingServiceImpl implements MessagingService {
             SimpMessagingTemplate messagingTemplate,
             ShelfService shelfService,
             BookPersistencePort bookPersistencePort,
-            BusinessMetrics businessMetrics
+            BusinessMetrics businessMetrics,
+            NotificationService notificationService
     ) {
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
@@ -84,6 +89,7 @@ public class MessagingServiceImpl implements MessagingService {
         this.shelfService = shelfService;
         this.bookPersistencePort = bookPersistencePort;
         this.businessMetrics = businessMetrics;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -287,6 +293,8 @@ public class MessagingServiceImpl implements MessagingService {
         if (mentions == null || mentions.isEmpty()) {
             return List.of();
         }
+        User sender = userLookupService.getPersistenceReference(senderId);
+        String senderName = DisplayNames.format(sender);
         List<MessageMentionDto> saved = new ArrayList<>();
         for (MessageMentionDto mention : mentions) {
             validateMention(senderId, participantIds, mention);
@@ -296,6 +304,15 @@ public class MessagingServiceImpl implements MessagingService {
                     mention.targetId(),
                     mention.label().trim()
             ));
+            if (mention.type() == MentionType.USER && !mention.targetId().equals(senderId)) {
+                notificationService.notifyMention(
+                        mention.targetId(),
+                        message.getId(),
+                        message.getConversation().getId(),
+                        senderId,
+                        senderName
+                );
+            }
             saved.add(mention);
         }
         return saved;

@@ -44,3 +44,10 @@ export function formatRelativeTime(iso: string): string {
   if (diffDay < 7) return `${diffDay}d ago`
   return date.toLocaleDateString()
 }
+
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}

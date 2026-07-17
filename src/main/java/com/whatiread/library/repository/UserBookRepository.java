@@ -180,7 +180,65 @@ public interface UserBookRepository extends JpaRepository<UserBook, UUID> {
     )
     int countBooksReadInYear(@Param("userId") UUID userId, @Param("year") short year);
 
+    @Query(
+            value = """
+                    SELECT COALESCE(SUM(COALESCE(b.page_count, ub.progress_pages, 0)), 0)
+                    FROM user_books ub
+                    JOIN books b ON b.id = ub.book_id
+                    WHERE ub.user_id = :userId
+                    AND ub.status = 'READ'
+                    AND ub.finished_at IS NOT NULL
+                    AND EXTRACT(YEAR FROM ub.finished_at) = :year
+                    """,
+            nativeQuery = true
+    )
+    int sumPagesReadInYear(@Param("userId") UUID userId, @Param("year") short year);
+
+    @EntityGraph(attributePaths = "book")
+    Page<UserBook> findByUserIdAndBook_IdIn(UUID userId, Collection<UUID> bookIds, Pageable pageable);
+
+    @EntityGraph(attributePaths = "book")
+    @Query("""
+            SELECT ub FROM UserBook ub
+            JOIN ub.book b
+            JOIN com.whatiread.catalog.author.domain.BookAuthor ba ON ba.book = b AND ba.author.id = :authorId
+            WHERE ub.user.id = :userId
+            """)
+    Page<UserBook> findByUserIdAndAuthorId(
+            @Param("userId") UUID userId,
+            @Param("authorId") UUID authorId,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = "book")
+    @Query("""
+            SELECT ub FROM UserBook ub
+            JOIN ub.book b
+            JOIN com.whatiread.catalog.author.domain.BookAuthor ba ON ba.book = b AND ba.author.id = :authorId
+            WHERE ub.user.id = :userId
+            AND ub.status = :status
+            """)
+    Page<UserBook> findByUserIdAndStatusAndAuthorId(
+            @Param("userId") UUID userId,
+            @Param("status") ReadingStatus status,
+            @Param("authorId") UUID authorId,
+            Pageable pageable
+    );
+
     @EntityGraph(attributePaths = "book")
     @Query("SELECT ub FROM UserBook ub WHERE ub.user.id = :userId AND ub.id IN :ids")
     List<UserBook> findOwnedByUserIdAndIdIn(@Param("userId") UUID userId, @Param("ids") Collection<UUID> ids);
+    @Query("""
+            SELECT ub FROM UserBook ub
+            JOIN FETCH ub.user u
+            JOIN FETCH ub.book b
+            WHERE u.id IN :userIds
+            AND b.id IN :bookIds
+            AND ub.status = com.whatiread.library.domain.ReadingStatus.READING
+            """)
+    List<UserBook> findReadingByUsersAndBookIdsIn(
+            @Param("userIds") Collection<UUID> userIds,
+            @Param("bookIds") Collection<UUID> bookIds
+    );
+
 }

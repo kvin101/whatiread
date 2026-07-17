@@ -7,12 +7,14 @@ import com.whatiread.library.api.UpdateUserBookNoteRequest;
 import com.whatiread.library.api.UpdateUserBookRequest;
 import com.whatiread.library.api.UserBookDto;
 import com.whatiread.library.api.UserBookNoteDto;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.service.LibraryService;
 import com.whatiread.shared.web.ApiPaths;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -48,15 +50,19 @@ public class LibraryController {
             @CurrentUserId UUID userId,
             @RequestParam(required = false) ReadingStatus status,
             @RequestParam(required = false) UUID shelfId,
+            @RequestParam(required = false) UUID authorId,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) LibrarySort sort,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false, defaultValue = "20") int limit,
             @PageableDefault(size = 20) Pageable pageable
     ) {
+        LibrarySort effectiveSort = sort != null ? sort : LibrarySort.UPDATED_DESC;
+        Pageable paging = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         if (cursor != null) {
-            return libraryService.listWithCursor(userId, status, shelfId, q, cursor, limit);
+            return libraryService.listWithCursor(userId, status, shelfId, authorId, q, effectiveSort, cursor, limit);
         }
-        return libraryService.list(userId, status, shelfId, q, pageable);
+        return libraryService.list(userId, status, shelfId, authorId, q, effectiveSort, paging);
     }
 
     @GetMapping("/by-book/{bookId}")

@@ -1,0 +1,213 @@
+databaseChangeLog:
+  - changeSet:
+      id: 018-reading-goals-target-pages
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: reading_goals
+            columns:
+              - column:
+                  name: target_pages
+                  type: int
+
+  - changeSet:
+      id: 018-reading-activity-days
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: reading_activity_days
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: activity_date
+                  type: date
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: reading_activity_days
+            columnNames: user_id, activity_date
+            constraintName: uk_reading_activity_days_user_date
+        - addForeignKeyConstraint:
+            baseTableName: reading_activity_days
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_reading_activity_days_user
+            onDelete: CASCADE
+        - createIndex:
+            tableName: reading_activity_days
+            indexName: idx_reading_activity_days_user_date
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: activity_date
+
+  - changeSet:
+      id: 018-notifications
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: notifications
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload
+                  type: clob
+              - column:
+                  name: read_at
+                  type: timestamp with time zone
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: notifications
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_notifications_user
+            onDelete: CASCADE
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_user_created
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: created_at
+
+  - changeSet:
+      id: 018-authors
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: authors
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: slug
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: name
+                  type: varchar(300)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bio
+                  type: clob
+              - column:
+                  name: photo_url
+                  type: varchar(2048)
+              - column:
+                  name: open_library_author_id
+                  type: varchar(100)
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 018-book-authors
+      author: whatiread
+      changes:
+        - createTable:
+            tableName: book_authors
+            columns:
+              - column:
+                  name: book_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: author_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: position
+                  type: int
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: book_authors
+            columnNames: book_id, author_id
+            constraintName: pk_book_authors
+        - addForeignKeyConstraint:
+            baseTableName: book_authors
+            baseColumnNames: book_id
+            referencedTableName: books
+            referencedColumnNames: id
+            constraintName: fk_book_authors_book
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: book_authors
+            baseColumnNames: author_id
+            referencedTableName: authors
+            referencedColumnNames: id
+            constraintName: fk_book_authors_author
+            onDelete: CASCADE
+        - createIndex:
+            tableName: book_authors
+            indexName: idx_book_authors_author
+            columns:
+              - column:
+                  name: author_id
+
+  - changeSet:
+      id: 018-shelves-cloned-from
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: shelves
+            columns:
+              - column:
+                  name: cloned_from_shelf_id
+                  type: uuid
+        - addForeignKeyConstraint:
+            baseTableName: shelves
+            baseColumnNames: cloned_from_shelf_id
+            referencedTableName: shelves
+            referencedColumnNames: id
+            constraintName: fk_shelves_cloned_from
+            onDelete: SET NULL

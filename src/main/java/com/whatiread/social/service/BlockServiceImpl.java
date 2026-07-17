@@ -5,10 +5,8 @@ import com.whatiread.identity.repository.UserRepository;
 import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.social.api.BlockedUserDto;
 import com.whatiread.social.domain.FriendRequestStatus;
-import com.whatiread.social.domain.Friendship;
 import com.whatiread.social.domain.UserBlock;
 import com.whatiread.social.repository.FriendRequestRepository;
-import com.whatiread.social.repository.FriendshipRepository;
 import com.whatiread.social.repository.UserBlockRepository;
 import java.util.List;
 import java.util.Map;
@@ -23,18 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class BlockServiceImpl implements BlockService {
 
     private final UserBlockRepository userBlockRepository;
-    private final FriendshipRepository friendshipRepository;
     private final FriendRequestRepository friendRequestRepository;
     private final UserRepository userRepository;
 
     public BlockServiceImpl(
             UserBlockRepository userBlockRepository,
-            FriendshipRepository friendshipRepository,
             FriendRequestRepository friendRequestRepository,
             UserRepository userRepository
     ) {
         this.userBlockRepository = userBlockRepository;
-        this.friendshipRepository = friendshipRepository;
         this.friendRequestRepository = friendRequestRepository;
         this.userRepository = userRepository;
     }
@@ -46,10 +41,6 @@ public class BlockServiceImpl implements BlockService {
         }
         if (userBlockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedUserId)) {
             return;
-        }
-        if (friendshipRepository.existsByUser_IdAndFriend_Id(blockerId, blockedUserId)) {
-            friendshipRepository.deleteById(new Friendship.FriendshipId(blockerId, blockedUserId));
-            friendshipRepository.deleteById(new Friendship.FriendshipId(blockedUserId, blockerId));
         }
         cancelPendingRequests(blockerId, blockedUserId);
         userBlockRepository.save(new UserBlock(blockerId, blockedUserId));

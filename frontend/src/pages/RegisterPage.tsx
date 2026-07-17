@@ -48,7 +48,7 @@ export function RegisterPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={APP_ROUTES.library} replace />
+    return <Navigate to={APP_ROUTES.home} replace />
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -64,7 +64,7 @@ export function RegisterPage() {
         lastName: form.lastName || undefined,
         phoneNumber: form.phoneNumber || undefined,
       })
-      navigate(APP_ROUTES.library, { replace: true })
+      navigate(APP_ROUTES.home, { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err, 'Registration failed — try a stronger password.'))
     } finally {

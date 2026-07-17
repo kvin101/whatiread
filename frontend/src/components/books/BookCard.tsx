@@ -1,8 +1,9 @@
 import type { UserBook } from '../../api/types'
 import { STATUS_COLORS, STATUS_LABELS } from '../../lib/constants'
-import { cn, formatAuthors } from '../../lib/utils'
+import { cn } from '../../lib/utils'
 import { Badge } from '../ui/Badge'
 import { BookCover } from './BookCover'
+import { AuthorLink } from './AuthorLink'
 
 export function BookCard({
   entry,
@@ -39,7 +40,7 @@ export function BookCard({
           {book.title}
         </h3>
         <p className="mt-0.5 text-sm text-ink-muted line-clamp-1 panel-text">
-          {formatAuthors(book.authors)}
+          <AuthorLink names={book.authors} />
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Link2, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, Link2, Lock, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { shelvesApi } from '../api/shelves'
 import type { ShelfBook, ShelfVisibility } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -24,6 +24,8 @@ import { cn, initials } from '../lib/utils'
 import { BookSkeletonGrid } from '../components/ui/BookLoader'
 import { QUERY_KEYS } from '../lib/constants'
 import { APP_ROUTES } from '../api/paths'
+import { SecretShelfUnlockPanel } from '../components/shelves/SecretShelfUnlockPanel'
+import { clearSecretShelfUnlockToken } from '../lib/secretShelfUnlock'
 import { ScrollablePage } from '../components/layout/ScrollablePage'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -48,6 +50,23 @@ export function ShelfDetailPage() {
   const [cloneOpen, setCloneOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
+  const [unlocked, setUnlocked] = useState(false)
+
+  const lockShelf = useCallback(() => {
+    if (!shelfId) return
+    clearSecretShelfUnlockToken(shelfId)
+    setUnlocked(false)
+    setTab('books')
+    setAddOpen(false)
+    setSelectedBook(null)
+    queryClient.removeQueries({ queryKey: QUERY_KEYS.shelves.books(shelfId) })
+  }, [shelfId, queryClient])
+
+  useEffect(() => {
+    return () => {
+      if (shelfId) clearSecretShelfUnlockToken(shelfId)
+    }
+  }, [shelfId])
 
   const { data: shelf } = useQuery({
     queryKey: QUERY_KEYS.shelves.detail(shelfId!),
@@ -55,25 +74,51 @@ export function ShelfDetailPage() {
     enabled: !!shelfId,
   })
 
+  const isSecret = shelf?.visibility === 'SECRET'
+  const needsUnlock = !!shelf?.requiresPin && !unlocked
+
   const { data: shelfBooks = [], refetch: refetchBooks, isLoading: booksLoading } = useQuery({
     queryKey: QUERY_KEYS.shelves.books(shelfId!),
     queryFn: () => shelvesApi.listBooks(shelfId!),
-    enabled: !!shelfId,
+    enabled: !!shelfId && !!shelf && !needsUnlock,
+    retry: (count, error) => {
+      if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+        return false
+      }
+      return count < 2
+    },
   })
 
   const { data: members = [] } = useQuery({
     queryKey: QUERY_KEYS.shelves.members(shelfId!),
     queryFn: () => shelvesApi.listMembers(shelfId!),
-    enabled: !!shelfId && !!shelf,
+    enabled: !!shelfId && !!shelf && !isSecret,
   })
 
+  const { data: readingOverlap = [] } = useQuery({
+    queryKey: [...QUERY_KEYS.shelves.books(shelfId!), 'reading-overlap'],
+    queryFn: () => shelvesApi.readingOverlap(shelfId!),
+    enabled: !!shelfId && !!shelf && !needsUnlock && members.length > 1,
+  })
+
+  const overlapByBookId = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const row of readingOverlap) {
+      map.set(
+        row.bookId,
+        row.readers.map((r) => r.displayName),
+      )
+    }
+    return map
+  }, [readingOverlap])
+
   useEffect(() => {
-    if (searchParams.get('addBooks') === '1') {
+    if (searchParams.get('addBooks') === '1' && !needsUnlock) {
       setAddOpen(true)
       searchParams.delete('addBooks')
       setSearchParams(searchParams, { replace: true })
     }
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, needsUnlock])
 
   const isOwner = shelf?.ownerId === user?.id
   const role = shelf?.currentUserRole
@@ -82,9 +127,7 @@ export function ShelfDetailPage() {
   const canManageMembers = isOwner || role === 'ADMIN'
   const canViewActivity = isOwner || role === 'ADMIN' || role === 'EDITOR'
   const readOnlyBookView = !!shelf && user?.id !== shelf.ownerId
-  const showSharingTab =
-    canManageMembers ||
-    (shelf && (shelf.visibility === 'PRIVATE' || shelf.visibility === 'SECRET'))
+  const showSharingTab = !isSecret && (canManageMembers || shelf?.visibility === 'PRIVATE')
 
   const maintainers = useMemo(() => {
     const ownerName = shelf?.ownerDisplayName ?? 'Owner'
@@ -165,7 +208,15 @@ export function ShelfDetailPage() {
                 {' · '}
                 {shelfBooks.length} books
               </p>
-              {maintainers.length > 0 && (
+              {shelf.clonedFromShelfName && shelf.clonedFromOwnerDisplayName && (
+                <p className="mt-2 text-sm text-ink-muted">
+                  Inspired by{' '}
+                  <span className="font-medium text-ink">{shelf.clonedFromOwnerDisplayName}</span>
+                  {"'s shelf "}
+                  <span className="italic">{shelf.clonedFromShelfName}</span>
+                </p>
+              )}
+              {maintainers.length > 0 && !isSecret && (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <div className="flex -space-x-2" aria-hidden>
                     {maintainers.slice(0, 3).map((m) => (
@@ -195,7 +246,13 @@ export function ShelfDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {canManageMembers && (
+            {isSecret && !needsUnlock && isOwner && (
+              <Button size="sm" variant="secondary" onClick={lockShelf}>
+                <Lock className="h-4 w-4" />
+                Lock
+              </Button>
+            )}
+            {canManageMembers && !isSecret && (
               <Button size="sm" variant="secondary" onClick={() => setTab('sharing')}>
                 <Link2 className="h-4 w-4" />
                 Share
@@ -219,12 +276,15 @@ export function ShelfDetailPage() {
                     compact
                     value={shelf.visibility}
                     onChange={(visibility) => updateVisibilityMutation.mutate(visibility)}
+                    excludeOptions={shelf.visibility === 'SECRET' ? [] : ['SECRET']}
                   />
                 )}
-                <Button onClick={() => setAddOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add books
-                </Button>
+                {!needsUnlock && (
+                  <Button onClick={() => setAddOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add books
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -251,14 +311,35 @@ export function ShelfDetailPage() {
           ))}
       </div>
 
-      {tab === 'books' && (
+      {tab === 'books' && needsUnlock && shelf && (
+        <div className="mt-8">
+          <SecretShelfUnlockPanel
+            shelfId={shelf.id}
+            shelfName={shelf.name}
+            onUnlocked={() => {
+              setUnlocked(true)
+              void refetchBooks()
+            }}
+          />
+        </div>
+      )}
+
+      {tab === 'books' && !needsUnlock && (
         <>
           {booksLoading && <BookSkeletonGrid className="mt-8" />}
           {!booksLoading && (
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {shelfBooks.map((sb) => (
+            {shelfBooks.map((sb) => {
+              const readers = overlapByBookId.get(sb.userBook.book.id) ?? []
+              return (
               <div key={sb.userBookId} className="relative group">
                 <BookCard entry={sb.userBook} onClick={() => setSelectedBook(sb)} />
+                {readers.length > 0 && (
+                  <p className="mt-1 text-xs text-sage px-1">
+                    {readers.length} reading now · {readers.slice(0, 2).join(', ')}
+                    {readers.length > 2 ? '…' : ''}
+                  </p>
+                )}
                 {canEdit && (
                   <button
                     type="button"
@@ -279,7 +360,8 @@ export function ShelfDetailPage() {
                   </button>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
           )}
 
@@ -318,7 +400,7 @@ export function ShelfDetailPage() {
         </div>
       )}
 
-      {canEdit && shelfId && (
+      {canEdit && shelfId && !needsUnlock && (
         <AddBooksToShelfModal
           shelfId={shelfId}
           open={addOpen}
@@ -341,6 +423,7 @@ export function ShelfDetailPage() {
               open={editOpen}
               onClose={() => setEditOpen(false)}
               onDeleted={() => navigate(APP_ROUTES.shelves)}
+              onLocked={lockShelf}
             />
           )}
         </>

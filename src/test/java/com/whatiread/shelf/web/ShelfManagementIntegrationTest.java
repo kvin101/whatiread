@@ -121,6 +121,11 @@ class ShelfManagementIntegrationTest extends AbstractApiIntegrationTest {
 
         UUID cloneId = UUID.fromString(JsonPath.read(cloneResponse, "$.id"));
 
+        mockMvc.perform(get(ApiPaths.SHELVES + "/{shelfId}", cloneId).with(bearer(collaborator.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clonedFromShelfId").value(shelfId.toString()))
+                .andExpect(jsonPath("$.clonedFromShelfName").value("Renamed shelf"));
+
         mockMvc.perform(get(ApiPaths.SHELVES + "/{shelfId}/events", cloneId).with(bearer(collaborator.accessToken())))
                 .andExpect(status().isOk());
 

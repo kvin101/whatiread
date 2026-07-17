@@ -8,6 +8,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.whatiread.catalog.author.domain.Author;
+import com.whatiread.catalog.author.service.AuthorService;
 import com.whatiread.catalog.api.BookDto;
 import com.whatiread.catalog.api.BookSearchResultDto;
 import com.whatiread.catalog.api.CreateBookRequest;
@@ -62,6 +64,10 @@ class BookServiceImplTest {
 
     @Mock
     private CacheManager cacheManager;
+
+    @Mock
+    private AuthorService authorService;
+
     @Spy
     private BookMapper bookMapper = new BookMapper();
 
@@ -94,6 +100,10 @@ class BookServiceImplTest {
         setId(book, bookId);
         lenient().when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(cacheManager.getCache(CacheConfig.BOOK_BY_ID)).thenReturn(null);
+        lenient().when(authorService.findOrCreateByName(any())).thenAnswer(invocation -> {
+            String name = invocation.getArgument(0);
+            return new Author(name.toLowerCase().replace(' ', '-'), name);
+        });
     }
 
     @Test
@@ -236,6 +246,7 @@ class BookServiceImplTest {
         BookDto dto = bookService.createManual(request);
 
         assertThat(dto.title()).isEqualTo(NEW_TITLE);
+        verify(authorService).findOrCreateByName("Author");
     }
 
     @Test

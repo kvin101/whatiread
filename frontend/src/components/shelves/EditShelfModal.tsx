@@ -4,6 +4,7 @@ import { shelvesApi } from '../../api/shelves'
 import type { Shelf, ShelfVisibility } from '../../api/types'
 import { IconPicker } from './IconPicker'
 import { VisibilityPicker } from './VisibilityPicker'
+import { SecretPinFields, isValidSecretPin } from './SecretPinFields'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
 import { Input, Label } from '../ui/Input'
@@ -11,6 +12,7 @@ import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Textarea'
 import { QUERY_KEYS } from '../../lib/constants'
 import { DEFAULT_SHELF_ICON } from '../../lib/shelfIcons'
+import { clearSecretShelfUnlockToken } from '../../lib/secretShelfUnlock'
 import { getApiErrorMessage } from '../../lib/api'
 
 export function EditShelfModal({
@@ -18,11 +20,13 @@ export function EditShelfModal({
   open,
   onClose,
   onDeleted,
+  onLocked,
 }: {
   shelf: Shelf
   open: boolean
   onClose: () => void
   onDeleted?: () => void
+  onLocked?: () => void
 }) {
   const queryClient = useQueryClient()
   const { confirm, dialog } = useConfirm()
@@ -30,7 +34,15 @@ export function EditShelfModal({
   const [description, setDescription] = useState(shelf.description ?? '')
   const [icon, setIcon] = useState(shelf.icon ?? DEFAULT_SHELF_ICON)
   const [visibility, setVisibility] = useState<ShelfVisibility>(shelf.visibility)
+  const [pin, setPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  const switchingToSecret = visibility === 'SECRET' && shelf.visibility !== 'SECRET'
+  const resettingPin =
+    shelf.visibility === 'SECRET' && visibility === 'SECRET' && (pin.length > 0 || confirmPin.length > 0)
+  const needsPin = switchingToSecret
+  const pinValid = needsPin || resettingPin ? isValidSecretPin(pin, confirmPin) : true
 
   useEffect(() => {
     if (open) {
@@ -38,6 +50,8 @@ export function EditShelfModal({
       setDescription(shelf.description ?? '')
       setIcon(shelf.icon ?? DEFAULT_SHELF_ICON)
       setVisibility(shelf.visibility)
+      setPin('')
+      setConfirmPin('')
       setError(null)
     }
   }, [open, shelf])
@@ -49,8 +63,16 @@ export function EditShelfModal({
         description: description.trim() || undefined,
         icon,
         visibility,
+        pin:
+          visibility === 'SECRET' && (switchingToSecret || pin.length > 0)
+            ? pin
+            : undefined,
       }),
     onSuccess: () => {
+      if (resettingPin || switchingToSecret) {
+        clearSecretShelfUnlockToken(shelf.id)
+        onLocked?.()
+      }
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shelves.all })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shelves.detail(shelf.id) })
       onClose()
@@ -99,6 +121,29 @@ export function EditShelfModal({
         <div>
           <VisibilityPicker value={visibility} onChange={setVisibility} />
         </div>
+        {visibility === 'SECRET' && switchingToSecret && (
+          <SecretPinFields
+            pin={pin}
+            confirmPin={confirmPin}
+            onPinChange={setPin}
+            onConfirmPinChange={setConfirmPin}
+            pinId="editSecretPin"
+            confirmId="editSecretPinConfirm"
+          />
+        )}
+        {visibility === 'SECRET' && shelf.visibility === 'SECRET' && (
+          <SecretPinFields
+            pin={pin}
+            confirmPin={confirmPin}
+            onPinChange={setPin}
+            onConfirmPinChange={setConfirmPin}
+            pinId="resetSecretPin"
+            confirmId="resetSecretPinConfirm"
+            title="Reset PIN (optional). Enter a new 4-digit PIN below, or leave blank to keep your current one."
+            pinLabel="New PIN"
+            confirmLabel="Confirm new PIN"
+          />
+        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex flex-wrap gap-2 justify-between">
           <Button
@@ -121,7 +166,7 @@ export function EditShelfModal({
               Cancel
             </Button>
             <Button
-              disabled={!name.trim() || updateMutation.isPending}
+              disabled={!name.trim() || updateMutation.isPending || !pinValid}
               onClick={() => updateMutation.mutate()}
             >
               Save changes

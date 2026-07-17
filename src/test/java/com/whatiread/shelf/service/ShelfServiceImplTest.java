@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import com.whatiread.config.CacheConfig;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.service.UserLookupService;
 import com.whatiread.library.api.UserBookDto;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.domain.UserBook;
 import com.whatiread.library.port.UserBookPersistencePort;
@@ -31,6 +33,7 @@ import com.whatiread.shelf.api.SharedShelfDto;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.api.UpdateShelfMemberRequest;
 import com.whatiread.shelf.api.UpdateShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfRequest;
 import com.whatiread.shelf.domain.ExploreShelfSource;
 import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.domain.ShelfBook;
@@ -60,6 +63,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -107,6 +111,11 @@ class ShelfServiceImplTest {
     private CacheManager cacheManager;
     @Mock
     private Cache cache;
+    private SecretShelfService secretShelfService;
+    @Mock
+    private ShelfUnlockTokenService shelfUnlockTokenService;
+    @Mock
+    private com.whatiread.library.repository.UserBookRepository userBookRepository;
     private ShelfServiceImpl shelfService;
 
     private UUID userId;
@@ -162,6 +171,12 @@ class ShelfServiceImplTest {
         setId(shelf, shelfId);
         shelf.setVisibility(ShelfVisibility.PRIVATE);
         shelfBookQueryService = new ShelfBookQueryService(shelfBookRepository, libraryService);
+        secretShelfService = new SecretShelfService(
+                new BCryptPasswordEncoder(),
+                shelfRepository,
+                shelfMemberRepository,
+                shelfShareLinkRepository
+        );
         shelfService = new ShelfServiceImpl(
                 shelfRepository,
                 shelfMemberRepository,
@@ -175,8 +190,11 @@ class ShelfServiceImplTest {
                 shelfAccessService,
                 friendshipService,
                 shelfEventService,
+                secretShelfService,
+                shelfUnlockTokenService,
                 businessMetrics,
-                cacheManager
+                cacheManager,
+                userBookRepository
         );
     }
 
@@ -194,7 +212,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
         ShelfDto created = shelfService.create(
-                userId, new CreateShelfRequest(READING_LIST_2, "desc", "📚", ShelfVisibility.PUBLIC));
+                userId, new CreateShelfRequest(READING_LIST_2, "desc", "📚", ShelfVisibility.PUBLIC, null));
 
         assertThat(created.name()).isEqualTo(READING_LIST_2);
         verify(shelfMemberRepository).save(any());
@@ -270,7 +288,7 @@ class ShelfServiceImplTest {
 
         shelfService.update(
                 userId, shelfId, new UpdateShelfRequest(
-                        "New Name", null, null, ShelfVisibility.PUBLIC, null));
+                        "New Name", null, null, ShelfVisibility.PUBLIC, null, null));
 
         verify(shelfEventService).record(eq(shelf), eq(userId), any(), any());
         verify(cache).evict(userId + ":reading-list");
@@ -284,7 +302,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.existsByShelf_IdAndUserBook_Id(shelfId, userBook.getId())).thenReturn(true);
 
         assertThatThrownBy(() -> shelfService.addBook(
-                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, null, null)))
+                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, null, null), null))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -369,7 +387,7 @@ class ShelfServiceImplTest {
         when(libraryService.get(userId, userBook.getId())).thenReturn(userBookDto(userBook.getId(), userBook.getBook()));
 
         var dto = shelfService.addBook(
-                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, null, ShelfVisibility.PUBLIC));
+                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, null, ShelfVisibility.PUBLIC), null);
 
         assertThat(dto.userBook().id()).isEqualTo(userBook.getId());
         verify(shelfEventService).record(eq(shelf), eq(userId), any(), any());
@@ -385,7 +403,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.findByShelf_IdAndUserBook_Id(shelfId, userBook.getId()))
                 .thenReturn(Optional.of(shelfBook));
 
-        shelfService.removeBook(userId, shelfId, userBook.getId());
+        shelfService.removeBook(userId, shelfId, userBook.getId(), null);
 
         verify(shelfBookRepository).delete(shelfBook);
         verify(shelfEventService).record(eq(shelf), eq(userId), any(), any());
@@ -401,7 +419,7 @@ class ShelfServiceImplTest {
         when(libraryService.listByIds(userId, List.of(userBook.getId())))
                 .thenReturn(List.of(userBookDto(userBook.getId(), userBook.getBook())));
 
-        assertThat(shelfService.listBooks(userId, shelfId)).hasSize(1);
+        assertThat(shelfService.listBooks(userId, shelfId, null)).hasSize(1);
         verify(libraryService, never()).listAllForUser(any());
     }
 
@@ -539,7 +557,7 @@ class ShelfServiceImplTest {
         when(shelfAccessService.roleFor(any(), eq(userId))).thenReturn(Optional.of(ShelfMemberRole.OWNER));
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
-        shelfService.update(userId, shelfId, new UpdateShelfRequest("Renamed", null, null, null, null));
+        shelfService.update(userId, shelfId, new UpdateShelfRequest("Renamed", null, null, null, null, null));
 
         verify(shelfEventService).record(eq(shelf), eq(userId), any(), any());
     }
@@ -575,7 +593,7 @@ class ShelfServiceImplTest {
 
         var dto = shelfService.updateBook(
                 userId, shelfId, userBook.getId(),
-                new com.whatiread.shelf.api.UpdateShelfBookRequest(3, ShelfVisibility.PUBLIC));
+                new com.whatiread.shelf.api.UpdateShelfBookRequest(3, ShelfVisibility.PUBLIC), null);
 
         assertThat(dto.position()).isEqualTo(3);
     }
@@ -597,7 +615,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.save(any(ShelfBook.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(libraryService.get(userId, userBook.getId())).thenReturn(userBookDto(userBook.getId(), bookEntity));
 
-        shelfService.addBook(userId, shelfId, new AddShelfBookRequest(null, bookId, null, null));
+        shelfService.addBook(userId, shelfId, new AddShelfBookRequest(null, bookId, null, null), null);
 
         verify(libraryService).ensureInLibrary(userId, bookId);
     }
@@ -644,7 +662,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.countByShelf_Id(any())).thenReturn(0L);
 
         ShelfDto created = shelfService.create(
-                userId, new CreateShelfRequest(READING_LIST_2, null, null, ShelfVisibility.PRIVATE));
+                userId, new CreateShelfRequest(READING_LIST_2, null, null, ShelfVisibility.PRIVATE, null));
 
         assertThat(created.slug()).isEqualTo("reading-list-2");
     }
@@ -749,7 +767,7 @@ class ShelfServiceImplTest {
 
     @Test
     void listSystemShelfBooksDelegatesToLibrary() {
-        when(libraryService.list(userId, ReadingStatus.READ, null, null, PageRequest.of(0, 10)))
+        when(libraryService.list(userId, ReadingStatus.READ, null, null, null, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         assertThat(shelfService.listSystemShelfBooks(userId, ReadingStatus.READ, PageRequest.of(0, 10)).getContent())
@@ -777,7 +795,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId)).thenReturn(List.of(existingShelfBook));
 
         assertThatThrownBy(() -> shelfService.addBook(
-                userId, shelfId, new AddShelfBookRequest(newUserBook.getId(), null, null, null)))
+                userId, shelfId, new AddShelfBookRequest(newUserBook.getId(), null, null, null), null))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -821,7 +839,7 @@ class ShelfServiceImplTest {
         when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
 
         assertThatThrownBy(() -> shelfService.addBook(
-                userId, shelfId, new AddShelfBookRequest(null, null, null, null)))
+                userId, shelfId, new AddShelfBookRequest(null, null, null, null), null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -839,7 +857,7 @@ class ShelfServiceImplTest {
         when(libraryService.get(userId, userBook.getId())).thenReturn(userBookDto(userBook.getId(), bookEntity));
 
         var dto = shelfService.addBook(
-                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, 7, null));
+                userId, shelfId, new AddShelfBookRequest(userBook.getId(), null, 7, null), null);
 
         assertThat(dto.position()).isEqualTo(7);
         verify(shelfBookRepository, never()).maxPosition(shelfId);
@@ -912,7 +930,7 @@ class ShelfServiceImplTest {
         when(shelfAccessService.roleFor(any(), eq(userId))).thenReturn(Optional.of(ShelfMemberRole.OWNER));
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
-        shelfService.update(userId, shelfId, new UpdateShelfRequest(null, "  ", "  ", null, null));
+        shelfService.update(userId, shelfId, new UpdateShelfRequest(null, "  ", "  ", null, null, null));
 
         assertThat(shelf.getDescription()).isNull();
         assertThat(shelf.getIcon()).isNull();
@@ -932,7 +950,7 @@ class ShelfServiceImplTest {
         when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
 
         ShelfDto created = shelfService.create(
-                userId, new CreateShelfRequest("Favorites", "  My list  ", " ⭐ ", ShelfVisibility.PRIVATE));
+                userId, new CreateShelfRequest("Favorites", "  My list  ", " ⭐ ", ShelfVisibility.PRIVATE, null));
 
         assertThat(created.name()).isEqualTo("Favorites");
     }
@@ -958,7 +976,7 @@ class ShelfServiceImplTest {
         when(libraryService.listByIds(userId, List.of(userBook.getId())))
                 .thenReturn(List.of(userBookDto(userBook.getId(), userBook.getBook())));
 
-        assertThat(shelfService.listBooks(viewerId, shelfId)).hasSize(1);
+        assertThat(shelfService.listBooks(viewerId, shelfId, null)).hasSize(1);
         verify(libraryService, never()).get(viewerId, userBook.getId());
         verify(libraryService, never()).getSharedView(userId, userBook.getId());
         verify(libraryService, never()).listAllForUser(any());
@@ -998,6 +1016,100 @@ class ShelfServiceImplTest {
 
         assertThat(shared.shelf().id()).isEqualTo(shelfId);
         assertThat(shared.books()).isEmpty();
+    }
+
+    @Test
+    void createSecretShelfRequiresPin() {
+        when(userLookupService.getPersistenceReference(userId)).thenReturn(owner);
+        when(shelfRepository.existsByOwner_IdAndSlug(userId, READING_LIST)).thenReturn(false);
+        when(shelfRepository.findByOwner_IdOrderBySortOrderAsc(userId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> shelfService.create(
+                userId, new CreateShelfRequest(READING_LIST_2, null, null, ShelfVisibility.SECRET, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PIN");
+    }
+
+    @Test
+    void createSecretShelfStoresPinHash() {
+        when(userLookupService.getPersistenceReference(userId)).thenReturn(owner);
+        when(shelfRepository.existsByOwner_IdAndSlug(userId, READING_LIST)).thenReturn(false);
+        when(shelfRepository.findByOwner_IdOrderBySortOrderAsc(userId)).thenReturn(List.of());
+        when(shelfRepository.existsByOwner_IdAndVisibility(userId, ShelfVisibility.SECRET)).thenReturn(false);
+        when(shelfRepository.save(any(Shelf.class))).thenAnswer(invocation -> {
+            Shelf saved = invocation.getArgument(0);
+            setId(saved, shelfId);
+            return saved;
+        });
+        when(shelfAccessService.roleFor(any(), eq(userId))).thenReturn(Optional.of(ShelfMemberRole.OWNER));
+        when(shelfBookRepository.countByShelf_Id(shelfId)).thenReturn(0L);
+
+        ShelfDto created = shelfService.create(
+                userId, new CreateShelfRequest(READING_LIST_2, null, null, ShelfVisibility.SECRET, "1234"));
+
+        assertThat(created.visibility()).isEqualTo(ShelfVisibility.SECRET);
+        assertThat(created.requiresPin()).isTrue();
+    }
+
+    @Test
+    void listBooksOnSecretShelfRequiresUnlockToken() {
+        shelf.setVisibility(ShelfVisibility.SECRET);
+        shelf.setPinHash(secretShelfService.hashPin("1234"));
+        when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
+        doThrow(new ForbiddenException("PIN required to access this secret shelf"))
+                .when(shelfUnlockTokenService).requireValid(any(), eq(userId), eq(shelfId));
+
+        assertThatThrownBy(() -> shelfService.listBooks(userId, shelfId, null))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("PIN required");
+    }
+
+    @Test
+    void unlockSecretShelfReturnsToken() {
+        shelf.setVisibility(ShelfVisibility.SECRET);
+        shelf.setPinHash(secretShelfService.hashPin("1234"));
+        when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
+        when(shelfUnlockTokenService.create(userId, shelfId)).thenReturn("unlock-token");
+
+        var response = shelfService.unlock(userId, shelfId, new UnlockShelfRequest("1234"));
+
+        assertThat(response.unlockToken()).isEqualTo("unlock-token");
+    }
+
+    @Test
+    void listReadingOverlapGroupsMembersByBook() {
+        UUID memberId = UUID.randomUUID();
+        User member = new User(MEMBER_EXAMPLE_COM, "member", HASH, MEMBER, USER);
+        setId(member, memberId);
+
+        UUID bookId = UUID.randomUUID();
+        Book book = new Book();
+        book.setTitle(DUNE);
+        setId(book, bookId);
+
+        UserBook ownerReading = new UserBook(owner, book, ReadingStatus.READING);
+        UUID ownerUserBookId = UUID.randomUUID();
+        setId(ownerReading, ownerUserBookId);
+
+        UserBook memberReading = new UserBook(member, book, ReadingStatus.READING);
+        UUID memberUserBookId = UUID.randomUUID();
+        setId(memberReading, memberUserBookId);
+
+        ShelfBook shelfBook = new ShelfBook(shelf, ownerReading, 0, userId);
+
+        when(shelfRepository.findById(shelfId)).thenReturn(Optional.of(shelf));
+        when(shelfMemberRepository.findByShelf_Id(shelfId)).thenReturn(List.of(
+                new ShelfMember(shelf, owner, ShelfMemberRole.OWNER, userId),
+                new ShelfMember(shelf, member, ShelfMemberRole.VIEWER, memberId)
+        ));
+        when(shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId)).thenReturn(List.of(shelfBook));
+        when(userBookRepository.findReadingByUsersAndBookIdsIn(any(), any())).thenReturn(List.of(ownerReading, memberReading));
+
+        var overlaps = shelfService.listReadingOverlap(userId, shelfId);
+
+        assertThat(overlaps).hasSize(1);
+        assertThat(overlaps.getFirst().bookId()).isEqualTo(bookId);
+        assertThat(overlaps.getFirst().readers()).hasSize(2);
     }
 
     private UserBookDto userBookDto(UUID userBookId, Book book) {

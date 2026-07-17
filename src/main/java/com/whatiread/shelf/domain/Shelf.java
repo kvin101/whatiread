@@ -42,6 +42,11 @@ public class Shelf extends AuditActorEntity {
     private String description;
     @Column(length = 32)
     private String icon;
+    @Column(name = "pin_hash", length = 100)
+    private String pinHash;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cloned_from_shelf_id")
+    private Shelf clonedFromShelf;
     @Version
     private long version;
 
@@ -104,5 +109,21 @@ public class Shelf extends AuditActorEntity {
 
     public void setIcon(String icon) {
         this.icon = icon;
+    }
+
+    public String getPinHash() {
+        return pinHash;
+    }
+
+    public void setPinHash(String pinHash) {
+        this.pinHash = pinHash;
+    }
+
+    public Shelf getClonedFromShelf() {
+        return clonedFromShelf;
+    }
+
+    public void setClonedFromShelf(Shelf clonedFromShelf) {
+        this.clonedFromShelf = clonedFromShelf;
     }
 }

@@ -20,12 +20,14 @@ import com.whatiread.library.api.AddToLibraryRequest;
 import com.whatiread.library.api.CreateUserBookNoteRequest;
 import com.whatiread.library.api.UpdateUserBookNoteRequest;
 import com.whatiread.library.api.UpdateUserBookRequest;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.domain.UserBook;
 import com.whatiread.library.domain.UserBookNote;
 import com.whatiread.library.port.ShelfBookQueryPort;
 import com.whatiread.library.repository.UserBookNoteRepository;
 import com.whatiread.library.repository.UserBookRepository;
+import com.whatiread.reading.service.ReadingStreakService;
 import com.whatiread.shared.api.CursorPage;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
@@ -47,6 +49,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -74,6 +77,8 @@ class LibraryServiceImplTest {
     private ShelfBookQueryPort shelfBookQueryPort;
     @Mock
     private BusinessMetrics businessMetrics;
+    @Mock
+    private ReadingStreakService readingStreakService;
 
     @InjectMocks
     private LibraryServiceImpl libraryService;
@@ -164,6 +169,19 @@ class LibraryServiceImplTest {
 
         assertThat(dto.status()).isEqualTo(ReadingStatus.TO_READ);
         verify(businessMetrics).recordBookAddedToLibrary();
+        verify(readingStreakService).recordActivity(userId);
+    }
+
+    @Test
+    void addDoesNotRecordStreakForToReadWithoutProgress() {
+        when(bookService.resolveCanonicalBookId(bookId)).thenReturn(bookId);
+        when(userBookRepository.findByUserIdAndBook_Id(userId, bookId)).thenReturn(Optional.empty());
+        when(userLookupService.getPersistenceReference(userId)).thenReturn(user);
+        when(bookPersistencePort.getReference(bookId)).thenReturn(book);
+
+        libraryService.add(userId, new AddToLibraryRequest(bookId, ReadingStatus.TO_READ, null));
+
+        verify(readingStreakService, never()).recordActivity(userId);
     }
 
     @Test
@@ -171,7 +189,7 @@ class LibraryServiceImplTest {
         UUID shelfId = UUID.randomUUID();
         when(shelfBookQueryPort.findUserBookIdsOnShelf(userId, shelfId)).thenReturn(List.of());
 
-        Page<?> page = libraryService.list(userId, null, shelfId, null, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, null, shelfId, null, null, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.isEmpty()).isTrue();
     }
@@ -241,17 +259,17 @@ class LibraryServiceImplTest {
         when(userBookRepository.findByUserId(eq(userId), any()))
                 .thenReturn(new PageImpl<>(List.of(userBook, duplicate)));
 
-        Page<?> page = libraryService.list(userId, null, null, null, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, null, null, null, null, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
     }
 
     @Test
     void listWithCursorReturnsKeysetPage() {
-        when(userBookRepository.findKeysetByUser(eq(userId), eq(ReadingStatus.READ), any(), any(), any()))
+        when(userBookRepository.findFirstKeysetPageByUser(eq(userId), eq(ReadingStatus.READ), any()))
                 .thenReturn(List.of(userBook));
 
-        CursorPage<?> page = libraryService.listWithCursor(userId, ReadingStatus.READ, null, null, null, 10);
+        CursorPage<?> page = libraryService.listWithCursor(userId, ReadingStatus.READ, null, null, null, LibrarySort.UPDATED_DESC, null, 10);
 
         assertThat(page.items()).hasSize(1);
         assertThat(page.hasMore()).isFalse();
@@ -259,10 +277,10 @@ class LibraryServiceImplTest {
 
     @Test
     void listWithCursorUsesOffsetListWhenSearching() {
-        when(userBookRepository.searchByUserId(userId, DUNE, PageRequest.of(0, 5)))
+        when(userBookRepository.searchByUserId(eq(userId), eq(DUNE), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        CursorPage<?> page = libraryService.listWithCursor(userId, null, null, DUNE, null, 5);
+        CursorPage<?> page = libraryService.listWithCursor(userId, null, null, null, DUNE, LibrarySort.UPDATED_DESC, null, 5);
 
         assertThat(page.items()).hasSize(1);
     }
@@ -340,7 +358,7 @@ class LibraryServiceImplTest {
                 eq(userId), eq(ReadingStatus.READING), eq(List.of(userBookId)), eq(DUNE), any()))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        Page<?> page = libraryService.list(userId, ReadingStatus.READING, shelfId, DUNE, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, ReadingStatus.READING, shelfId, null, DUNE, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
     }
@@ -376,10 +394,10 @@ class LibraryServiceImplTest {
         UserBook second = new UserBook(user, book, ReadingStatus.READ);
         UUID secondId = UUID.randomUUID();
         setId(second, secondId);
-        when(userBookRepository.findKeysetByUser(eq(userId), eq(ReadingStatus.READ), any(), any(), any()))
+        when(userBookRepository.findFirstKeysetPageByUser(eq(userId), eq(ReadingStatus.READ), any()))
                 .thenReturn(List.of(userBook, second));
 
-        CursorPage<?> page = libraryService.listWithCursor(userId, ReadingStatus.READ, null, null, null, 1);
+        CursorPage<?> page = libraryService.listWithCursor(userId, ReadingStatus.READ, null, null, null, LibrarySort.UPDATED_DESC, null, 1);
 
         assertThat(page.items()).hasSize(1);
         assertThat(page.nextCursor()).isNotNull();
@@ -410,10 +428,10 @@ class LibraryServiceImplTest {
 
     @Test
     void listByStatusUsesStatusFilter() {
-        when(userBookRepository.findByUserIdAndStatus(userId, ReadingStatus.READING, PageRequest.of(0, 10)))
+        when(userBookRepository.findByUserIdAndStatus(eq(userId), eq(ReadingStatus.READING), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        Page<?> page = libraryService.list(userId, ReadingStatus.READING, null, null, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, ReadingStatus.READING, null, null, null, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
     }
@@ -436,7 +454,7 @@ class LibraryServiceImplTest {
                 eq(userId), eq(null), eq(userBook.getUpdatedAt()), eq(userBookId), any()))
                 .thenReturn(List.of(userBook));
 
-        CursorPage<?> page = libraryService.listWithCursor(userId, null, null, null, cursor, 10);
+        CursorPage<?> page = libraryService.listWithCursor(userId, null, null, null, null, LibrarySort.UPDATED_DESC, cursor, 10);
 
         assertThat(page.items()).hasSize(1);
     }
@@ -462,10 +480,10 @@ class LibraryServiceImplTest {
     void listWithShelfAndSearchUsesShelfScopedSearch() {
         UUID shelfId = UUID.randomUUID();
         when(shelfBookQueryPort.findUserBookIdsOnShelf(userId, shelfId)).thenReturn(List.of(userBookId));
-        when(userBookRepository.searchByUserIdAndIdIn(userId, List.of(userBookId), DUNE, PageRequest.of(0, 10)))
+        when(userBookRepository.searchByUserIdAndIdIn(eq(userId), eq(List.of(userBookId)), eq(DUNE), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        Page<?> page = libraryService.list(userId, null, shelfId, DUNE, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, null, shelfId, null, DUNE, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
     }
@@ -475,10 +493,10 @@ class LibraryServiceImplTest {
         UUID shelfId = UUID.randomUUID();
         when(shelfBookQueryPort.findUserBookIdsOnShelf(userId, shelfId)).thenReturn(List.of(userBookId));
         when(userBookRepository.findByUserIdAndStatusAndIdIn(
-                userId, ReadingStatus.READING, List.of(userBookId), PageRequest.of(0, 10)))
+                eq(userId), eq(ReadingStatus.READING), eq(List.of(userBookId)), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        Page<?> page = libraryService.list(userId, ReadingStatus.READING, shelfId, null, PageRequest.of(0, 10));
+        Page<?> page = libraryService.list(userId, ReadingStatus.READING, shelfId, null, null, LibrarySort.UPDATED_DESC, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
     }
@@ -520,10 +538,10 @@ class LibraryServiceImplTest {
     void listWithCursorDelegatesToOffsetListWhenShelfProvided() {
         UUID shelfId = UUID.randomUUID();
         when(shelfBookQueryPort.findUserBookIdsOnShelf(userId, shelfId)).thenReturn(List.of(userBookId));
-        when(userBookRepository.findByUserIdAndIdIn(userId, List.of(userBookId), PageRequest.of(0, 5)))
+        when(userBookRepository.findByUserIdAndIdIn(eq(userId), eq(List.of(userBookId)), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(userBook)));
 
-        CursorPage<?> page = libraryService.listWithCursor(userId, null, shelfId, null, null, 5);
+        CursorPage<?> page = libraryService.listWithCursor(userId, null, shelfId, null, null, LibrarySort.UPDATED_DESC, null, 5);
 
         assertThat(page.items()).hasSize(1);
     }
@@ -552,6 +570,8 @@ class LibraryServiceImplTest {
         });
 
         libraryService.add(userId, new AddToLibraryRequest(bookId, ReadingStatus.READING, null));
+
+        verify(readingStreakService).recordActivity(userId);
     }
 
     @Test

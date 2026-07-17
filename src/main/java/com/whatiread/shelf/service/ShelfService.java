@@ -13,11 +13,14 @@ import com.whatiread.shelf.api.ShelfBookDto;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.api.ShelfEventDto;
 import com.whatiread.shelf.api.ShelfMemberDto;
+import com.whatiread.shelf.api.ShelfReadingOverlapDto;
 import com.whatiread.shelf.api.ShelfShareLinkDto;
 import com.whatiread.shelf.api.SystemShelfDto;
 import com.whatiread.shelf.api.UpdateShelfBookRequest;
 import com.whatiread.shelf.api.UpdateShelfMemberRequest;
 import com.whatiread.shelf.api.UpdateShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfResponse;
 import com.whatiread.shelf.domain.Shelf;
 import java.util.Collection;
 import java.util.List;
@@ -46,6 +49,8 @@ public interface ShelfService {
     ShelfDto getPublic(UUID ownerId, String slug);
 
     ShelfDto update(UUID userId, UUID shelfId, UpdateShelfRequest request);
+
+    UnlockShelfResponse unlock(UUID userId, UUID shelfId, UnlockShelfRequest request);
 
     void delete(UUID userId, UUID shelfId);
 
@@ -77,15 +82,21 @@ public interface ShelfService {
 
     SharedShelfDto getSharedShelf(UUID token);
 
-    List<ShelfBookDto> listBooks(UUID userId, UUID shelfId);
+    List<ShelfBookDto> listBooks(UUID userId, UUID shelfId, String unlockToken);
 
     List<ShelfBookDto> listPublicBooks(UUID ownerId, String slug);
 
-    ShelfBookDto addBook(UUID userId, UUID shelfId, AddShelfBookRequest request);
+    ShelfBookDto addBook(UUID userId, UUID shelfId, AddShelfBookRequest request, String unlockToken);
 
-    ShelfBookDto updateBook(UUID userId, UUID shelfId, UUID userBookId, UpdateShelfBookRequest request);
+    ShelfBookDto updateBook(
+            UUID userId,
+            UUID shelfId,
+            UUID userBookId,
+            UpdateShelfBookRequest request,
+            String unlockToken
+    );
 
-    void removeBook(UUID userId, UUID shelfId, UUID userBookId);
+    void removeBook(UUID userId, UUID shelfId, UUID userBookId, String unlockToken);
 
     List<SystemShelfDto> listSystemShelves();
 
@@ -106,4 +117,6 @@ public interface ShelfService {
     java.util.Optional<UUID> findShelfIdByOwnerAndName(UUID ownerId, String name);
 
     Map<UUID, List<String>> getShelfNamesForUserBooks(UUID userId, List<UUID> userBookIds);
+
+    List<ShelfReadingOverlapDto> listReadingOverlap(UUID userId, UUID shelfId);
 }

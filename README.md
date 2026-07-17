@@ -51,8 +51,23 @@ See `.env` for Docker variables. Key API settings:
 ./mvnw verify
 cd frontend && npm run build
 python3 -m pip install -r scripts/smoke/requirements.txt
-python3 scripts/smoke/run.py   # live Docker stack E2E
+python3 scripts/smoke/run.py   # API smoke (live Docker stack)
 ```
+
+### Browser E2E (Playwright)
+
+Opens a real Chromium window, seeds a user, and visits every UI route. See [frontend/e2e/README.md](./frontend/e2e/README.md).
+
+```bash
+cd frontend
+npm install
+npm run test:e2e:install   # once — downloads Chromium
+npm run test:e2e           # headless
+npm run test:e2e:headed    # visible browser, 16″ viewport, slow pacing
+npm run test:e2e:ui        # interactive debugger
+```
+
+From repo root: `node scripts/smoke/ui_audit.mjs` (or `--headed`).
 
 Optional env: `BASE_URL`, `SMOKE_PASSWORD`, `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`.
 

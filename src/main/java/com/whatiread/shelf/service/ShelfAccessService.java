@@ -49,6 +49,9 @@ public class ShelfAccessService {
 
     public boolean canView(Shelf shelf, UUID viewerId) {
         ShelfVisibility visibility = shelf.getVisibility();
+        if (visibility == ShelfVisibility.SECRET) {
+            return viewerId != null && shelf.getOwner().getId().equals(viewerId);
+        }
         if (visibility == ShelfVisibility.PUBLIC) {
             return true;
         }

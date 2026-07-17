@@ -5,12 +5,13 @@ import { friendsApi } from '../api/friends'
 import { libraryApi } from '../api/library'
 import { recommendationsApi } from '../api/recommendations'
 import { shelvesApi } from '../api/shelves'
-import type { Book, Page, RecommendationTargetType, Shelf, UserBook } from '../api/types'
+import type { Book, Page, Recommendation, RecommendationTargetType, Shelf, UserBook } from '../api/types'
 import { EmptyState } from '../components/ui/EmptyState'
 import { BookLoaderCenter } from '../components/ui/BookLoader'
 import { ScrollablePage } from '../components/layout/ScrollablePage'
 import { PageHeader } from '../components/layout/PageHeader'
 import { RecommendationCard } from '../components/recommendations/RecommendationCard'
+import { AcceptRecommendationModal } from '../components/recommendations/AcceptRecommendationModal'
 import { RecommendModal } from '../components/recommendations/RecommendModal'
 import { Button } from '../components/ui/Button'
 import { useConfirm } from '../components/ui/ConfirmDialog'
@@ -30,6 +31,7 @@ export function RecommendationsPage() {
   const queryClient = useQueryClient()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [recommendOpen, setRecommendOpen] = useState(false)
+  const [acceptRec, setAcceptRec] = useState<Recommendation | null>(null)
   const [bookSearch, setBookSearch] = useState('')
   const [debouncedBookSearch, setDebouncedBookSearch] = useState('')
   const [shelves, setShelves] = useState<Shelf[]>([])
@@ -111,13 +113,14 @@ export function RecommendationsPage() {
     return [...byId.values()]
   }, [libraryPages])
 
-  const acceptMutation = useMutation({
-    mutationFn: recommendationsApi.accept,
-    onSuccess: (_, recId) => {
-      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.inbox, recId)
+
+  const handleAccepted = () => {
+    if (acceptRec) {
+      removeArrayQueryItem(queryClient, QUERY_KEYS.recommendations.inbox, acceptRec.id)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.library.forRec })
-    },
-  })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shelves.all })
+    }
+  }
 
   const dismissMutation = useMutation({
     mutationFn: recommendationsApi.dismiss,
@@ -200,10 +203,10 @@ export function RecommendationsPage() {
                 <RecommendationCard
                   rec={rec}
                   variant="inbox"
-                  acceptPending={acceptMutation.isPending}
+                  acceptPending={false}
                   dismissPending={dismissMutation.isPending}
                   deletePending={deleteMutation.isPending}
-                  onAccept={() => acceptMutation.mutate(rec.id)}
+                  onAccept={() => setAcceptRec(rec)}
                   onDismiss={() => dismissMutation.mutate(rec.id)}
                   onDelete={() => handleDelete(rec.id, 'inbox')}
                 />
@@ -284,6 +287,13 @@ export function RecommendationsPage() {
         pending={createMutation.isPending}
         error={error}
         onSubmit={(payload) => createMutation.mutate(payload)}
+      />
+
+      <AcceptRecommendationModal
+        rec={acceptRec}
+        open={!!acceptRec}
+        onClose={() => setAcceptRec(null)}
+        onAccepted={handleAccepted}
       />
 
       {confirmDialog}

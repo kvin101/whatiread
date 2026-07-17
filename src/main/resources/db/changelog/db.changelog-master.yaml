@@ -35,3 +35,7 @@ databaseChangeLog:
       file: db/changelog/changes/015-shelf-share-links.yaml
   - include:
       file: db/changelog/changes/016-user-username.yaml
+  - include:
+      file: db/changelog/changes/017-secret-shelf-pin.yaml
+  - include:
+      file: db/changelog/changes/018-product-roadmap.yaml

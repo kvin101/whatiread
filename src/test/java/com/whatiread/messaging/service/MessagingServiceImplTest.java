@@ -27,6 +27,7 @@ import com.whatiread.messaging.repository.ConversationRepository;
 import com.whatiread.messaging.repository.ConversationUnreadView;
 import com.whatiread.messaging.repository.MessageMentionRepository;
 import com.whatiread.messaging.repository.MessageRepository;
+import com.whatiread.notification.service.NotificationService;
 import com.whatiread.shared.exception.ForbiddenException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.shelf.service.ShelfService;
@@ -80,6 +81,8 @@ class MessagingServiceImplTest {
     private BookPersistencePort bookPersistencePort;
     @Mock
     private BusinessMetrics businessMetrics;
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private MessagingServiceImpl messagingService;

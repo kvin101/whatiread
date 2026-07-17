@@ -3,7 +3,7 @@ import { API_PATHS } from './paths'
 import type { Comment, CommentTargetType, Page } from './types'
 
 export const commentsApi = {
-  list(targetType: CommentTargetType, targetId: string, page = 0, size = 20) {
+  list(targetType: CommentTargetType, targetId: string, page = 0, size = 50) {
     const params = new URLSearchParams({
       targetType,
       targetId,

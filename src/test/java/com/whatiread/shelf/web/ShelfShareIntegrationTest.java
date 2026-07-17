@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.whatiread.shared.security.SecurityConstants;
 import com.whatiread.shared.web.ApiPaths;
 import com.whatiread.support.AbstractApiIntegrationTest;
 import java.util.UUID;
@@ -27,7 +28,7 @@ class ShelfShareIntegrationTest extends AbstractApiIntegrationTest {
         owner = registerUser();
         bookId = createBook(owner, "Shared Shelf Book " + UUID.randomUUID(), "Author", 200);
         userBookId = addToLibrary(owner, bookId);
-        shelfId = createShelf(owner, "Secret Share Shelf " + UUID.randomUUID(), "SECRET");
+        shelfId = createShelf(owner, "Private Share Shelf " + UUID.randomUUID(), "PRIVATE");
         mockMvc.perform(post(ApiPaths.SHELVES + "/{shelfId}/books", shelfId)
                         .with(bearer(owner.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -57,7 +58,7 @@ class ShelfShareIntegrationTest extends AbstractApiIntegrationTest {
         mockMvc.perform(get(ApiPaths.PUBLIC_SHELF_SHARE + "/{token}", token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.shelf.name").exists())
-                .andExpect(jsonPath("$.shelf.visibility").value("SECRET"))
+                .andExpect(jsonPath("$.shelf.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.books", hasSize(1)));
 
         AuthSession visitor = registerUser();
@@ -97,6 +98,29 @@ class ShelfShareIntegrationTest extends AbstractApiIntegrationTest {
 
         mockMvc.perform(post(ApiPaths.SHELVES + "/{shelfId}/share-links", shelfId)
                         .with(bearer(stranger.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void secretShelfCannotBeShared() throws Exception {
+        UUID secretShelfId = createSecretShelf(owner, "Secret Shelf " + UUID.randomUUID(), "4321");
+        String unlockToken = unlockSecretShelf(owner, secretShelfId, "4321");
+
+        mockMvc.perform(post(ApiPaths.SHELVES + "/{shelfId}/books", secretShelfId)
+                        .with(bearer(owner.accessToken()))
+                        .header(SecurityConstants.SHELF_UNLOCK_HEADER, unlockToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userBookId": "%s"
+                                }
+                                """.formatted(userBookId)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post(ApiPaths.SHELVES + "/{shelfId}/share-links", secretShelfId)
+                        .with(bearer(owner.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());

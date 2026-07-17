@@ -12,6 +12,8 @@ import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.domain.ShelfEvent;
 import com.whatiread.shelf.domain.ShelfEventType;
 import com.whatiread.shelf.repository.ShelfEventRepository;
+import com.whatiread.shelf.repository.ShelfRepository;
+import com.whatiread.social.service.FriendshipService;
 import com.whatiread.support.TestConstants;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -41,6 +43,10 @@ class ShelfEventServiceTest {
     private static final String INVALID_JSON_PAYLOAD = "{not-json";
     @Mock
     private ShelfEventRepository shelfEventRepository;
+    @Mock
+    private ShelfRepository shelfRepository;
+    @Mock
+    private FriendshipService friendshipService;
     @Mock
     private UserLookupService userLookupService;
     @Spy

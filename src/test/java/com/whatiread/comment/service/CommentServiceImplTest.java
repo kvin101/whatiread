@@ -103,7 +103,7 @@ class CommentServiceImplTest {
 
     @Test
     void listReturnsCommentsForAccessibleTarget() {
-        when(commentRepository.findByTargetTypeAndTargetIdOrderByCreatedAtAsc(
+        when(commentRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
                 eq(CommentTargetType.BOOK), eq(targetId), any()))
                 .thenReturn(new PageImpl<>(java.util.List.of(comment)));
 

@@ -166,6 +166,42 @@ public abstract class AbstractApiIntegrationTest {
         return UUID.fromString(JsonPath.read(response, JSON_PATH_ID));
     }
 
+    protected UUID createSecretShelf(AuthSession session, String name, String pin) throws Exception {
+        String response = mockMvc.perform(post(ApiPaths.SHELVES)
+                        .with(bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "%s",
+                                  "visibility": "SECRET",
+                                  "pin": "%s"
+                                }
+                                """.formatted(name, pin)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return UUID.fromString(JsonPath.read(response, JSON_PATH_ID));
+    }
+
+    protected String unlockSecretShelf(AuthSession session, UUID shelfId, String pin) throws Exception {
+        String response = mockMvc.perform(post(ApiPaths.SHELVES + "/{shelfId}/unlock", shelfId)
+                        .with(bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "pin": "%s"
+                                }
+                                """.formatted(pin)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return JsonPath.read(response, "$.unlockToken");
+    }
+
     protected void makeFriends(AuthSession requester, AuthSession target) throws Exception {
         mockMvc.perform(post(ApiPaths.FRIENDS + "/requests")
                         .with(bearer(requester.accessToken()))

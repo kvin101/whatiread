@@ -12,11 +12,29 @@ export const QUERY_KEYS = {
   },
   library: {
     all: ['library'] as const,
-    list: (filter: string, shelfFilter: string, search: string) =>
-      ['library', filter, shelfFilter, search] as const,
+    list: (filter: string, shelfFilter: string, search: string, sort: string, authorId: string) =>
+      ['library', filter, shelfFilter, search, sort, authorId] as const,
+    reading: ['library', 'reading'] as const,
     byBook: (bookId: string) => ['library', 'by-book', bookId] as const,
     detail: (userBookId: string) => ['library', userBookId] as const,
     forRec: ['library', 'for-rec'] as const,
+  },
+  reading: {
+    goal: (year: number) => ['reading', 'goal', year] as const,
+    stats: (year: number) => ['reading', 'stats', year] as const,
+    streak: ['reading', 'streak'] as const,
+  },
+  activity: {
+    preview: ['activity', 'preview'] as const,
+    infinite: ['activity', 'infinite'] as const,
+  },
+  notifications: {
+    all: ['notifications'] as const,
+  },
+  authors: {
+    detail: (slug: string) => ['authors', slug] as const,
+    books: (slug: string) => ['authors', slug, 'books'] as const,
+    library: (slug: string) => ['authors', slug, 'library'] as const,
   },
   shelves: {
     all: ['shelves'] as const,
@@ -86,7 +104,7 @@ export const VISIBILITY_LABELS: Record<ShelfVisibility, string> = {
 }
 
 export const VISIBILITY_HINTS: Record<ShelfVisibility, string> = {
-  SECRET: 'Only you and collaborators — hidden from your profile',
+  SECRET: 'Only you — PIN required, not shareable',
   PRIVATE: 'Only you and collaborators',
   FRIENDS: 'Visible to friends on your profile',
   PUBLIC: 'Anyone can find on Explore (public filter) and your profile',

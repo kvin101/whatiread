@@ -166,5 +166,10 @@ class SocialApiIntegrationTest extends AbstractApiIntegrationTest {
         mockMvc.perform(get(ApiPaths.FRIENDS + BLOCKED).with(bearer(blocker.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
+
+        mockMvc.perform(get(ApiPaths.FRIENDS).with(bearer(blocker.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath(V_0_ID).value(target.userId().toString()));
     }
 }

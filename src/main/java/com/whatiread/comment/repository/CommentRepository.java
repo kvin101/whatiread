@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CommentRepository extends JpaRepository<Comment, UUID> {
 
     @EntityGraph(attributePaths = "author")
-    Page<Comment> findByTargetTypeAndTargetIdOrderByCreatedAtAsc(
+    Page<Comment> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
             CommentTargetType targetType,
             UUID targetId,
             Pageable pageable

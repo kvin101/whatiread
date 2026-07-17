@@ -22,6 +22,8 @@ from scenarios_library import run_library  # noqa: E402
 from scenarios_messaging import run_messaging  # noqa: E402
 from scenarios_platform import run_infra, run_platform, run_setup  # noqa: E402
 from scenarios_recommendations_comments import run_comments, run_recommendations  # noqa: E402
+from scenarios_features import run_features  # noqa: E402
+from scenarios_roadmap import run_roadmap  # noqa: E402
 from scenarios_shelves import run_shelves, run_shelves_extended  # noqa: E402
 from scenarios_users_books import run_books, run_users  # noqa: E402
 
@@ -32,9 +34,11 @@ SCENARIOS = [
     run_users,
     run_books,
     run_library,
+    run_features,
     run_shelves,
     run_friends,
     run_shelves_extended,
+    run_roadmap,
     run_messaging,
     run_recommendations,
     run_comments,

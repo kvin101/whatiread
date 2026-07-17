@@ -13,10 +13,8 @@ import com.whatiread.shared.exception.ResourceNotFoundException;
 import com.whatiread.social.api.BlockedUserDto;
 import com.whatiread.social.domain.FriendRequest;
 import com.whatiread.social.domain.FriendRequestStatus;
-import com.whatiread.social.domain.Friendship;
 import com.whatiread.social.domain.UserBlock;
 import com.whatiread.social.repository.FriendRequestRepository;
-import com.whatiread.social.repository.FriendshipRepository;
 import com.whatiread.social.repository.UserBlockRepository;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -39,9 +37,6 @@ class BlockServiceImplTest {
     private static final String ADA = "Ada";
     @Mock
     private UserBlockRepository userBlockRepository;
-
-    @Mock
-    private FriendshipRepository friendshipRepository;
 
     @Mock
     private FriendRequestRepository friendRequestRepository;
@@ -97,18 +92,16 @@ class BlockServiceImplTest {
         blockService.block(blockerId, blockedId);
 
         verify(userBlockRepository, never()).save(any());
-        verify(friendshipRepository, never()).deleteById(any());
     }
 
     @Test
-    void blockRemovesFriendshipAndCancelsPendingRequests() {
+    void blockCancelsPendingRequestsWithoutRemovingFriendship() {
         User requester = user(blockerId);
         User addressee = user(blockedId);
         FriendRequest outgoing = new FriendRequest(requester, addressee, FriendRequestStatus.PENDING);
         FriendRequest incoming = new FriendRequest(addressee, requester, FriendRequestStatus.PENDING);
 
         when(userBlockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedId)).thenReturn(false);
-        when(friendshipRepository.existsByUser_IdAndFriend_Id(blockerId, blockedId)).thenReturn(true);
         when(friendRequestRepository.findByRequester_IdAndAddressee_Id(blockerId, blockedId))
                 .thenReturn(Optional.of(outgoing));
         when(friendRequestRepository.findByRequester_IdAndAddressee_Id(blockedId, blockerId))
@@ -116,8 +109,6 @@ class BlockServiceImplTest {
 
         blockService.block(blockerId, blockedId);
 
-        verify(friendshipRepository).deleteById(new Friendship.FriendshipId(blockerId, blockedId));
-        verify(friendshipRepository).deleteById(new Friendship.FriendshipId(blockedId, blockerId));
         assertThat(outgoing.getStatus()).isEqualTo(FriendRequestStatus.CANCELLED);
         assertThat(incoming.getStatus()).isEqualTo(FriendRequestStatus.CANCELLED);
         verify(friendRequestRepository).save(outgoing);
@@ -178,7 +169,6 @@ class BlockServiceImplTest {
     @Test
     void blockWithoutFriendshipOrRequestsOnlyPersistsBlock() {
         when(userBlockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedId)).thenReturn(false);
-        when(friendshipRepository.existsByUser_IdAndFriend_Id(blockerId, blockedId)).thenReturn(false);
         when(friendRequestRepository.findByRequester_IdAndAddressee_Id(blockerId, blockedId))
                 .thenReturn(Optional.empty());
         when(friendRequestRepository.findByRequester_IdAndAddressee_Id(blockedId, blockerId))
@@ -187,7 +177,6 @@ class BlockServiceImplTest {
         blockService.block(blockerId, blockedId);
 
         verify(userBlockRepository).save(any(UserBlock.class));
-        verify(friendshipRepository, never()).deleteById(any());
         verify(friendRequestRepository, never()).save(any());
     }
 

@@ -2,11 +2,12 @@
 export const copy = {
   brand: {
     name: 'WhatIRead',
-    tagline: 'Track what you read',
+    tagline: 'The reading app, done right.',
     motto: 'Read more. Share shelves.',
     footnote: 'AGPL-3.0',
   },
   nav: {
+    home: 'Home',
     library: 'My Books',
     shelves: 'Shelves',
     explore: 'Explore',
@@ -101,6 +102,14 @@ export const copy = {
     send: 'Send request',
     incoming: 'Incoming requests',
     outgoing: 'Sent requests',
+    sentRequestsHint: 'View requests you have sent',
+    sentRequestsSubtitle: (count: number) =>
+      count === 1 ? '1 request waiting for a response' : `${count} requests waiting for a response`,
+    sentRequestsEmptyTitle: 'No sent requests',
+    sentRequestsEmpty: 'Requests you send will show up here until they accept or you withdraw them.',
+    searchFriends: 'Search friends…',
+    noSearchResults: 'No friends match your search.',
+    blockedManage: 'Blocked accounts',
     decline: 'Decline',
     cancelRequest: 'Cancel',
     declineConfirm: {

@@ -6,6 +6,7 @@ import com.whatiread.library.api.UpdateUserBookNoteRequest;
 import com.whatiread.library.api.UpdateUserBookRequest;
 import com.whatiread.library.api.UserBookDto;
 import com.whatiread.library.api.UserBookNoteDto;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.shared.api.CursorPage;
 import java.util.Collection;
@@ -19,13 +20,23 @@ public interface LibraryService {
 
     UserBookDto add(UUID userId, AddToLibraryRequest request);
 
-    Page<UserBookDto> list(UUID userId, ReadingStatus status, UUID shelfId, String query, Pageable pageable);
+    Page<UserBookDto> list(
+            UUID userId,
+            ReadingStatus status,
+            UUID shelfId,
+            UUID authorId,
+            String query,
+            LibrarySort sort,
+            Pageable pageable
+    );
 
     CursorPage<UserBookDto> listWithCursor(
             UUID userId,
             ReadingStatus status,
             UUID shelfId,
+            UUID authorId,
             String query,
+            LibrarySort sort,
             String cursor,
             int limit
     );

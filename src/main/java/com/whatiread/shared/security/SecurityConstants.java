@@ -15,6 +15,10 @@ public final class SecurityConstants {
     public static final String JWT_CLAIM_EMAIL = "email";
     public static final String JWT_CLAIM_TOKEN_VERSION = "tv";
     public static final String JWT_TYPE_ACCESS = "access";
+    public static final String JWT_TYPE_SHELF_UNLOCK = "shelf_unlock";
+    public static final String JWT_CLAIM_SHELF_ID = "sid";
+
+    public static final String SHELF_UNLOCK_HEADER = "X-Shelf-Unlock";
 
     private SecurityConstants() {
     }

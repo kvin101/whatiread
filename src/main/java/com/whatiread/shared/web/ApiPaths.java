@@ -26,6 +26,12 @@ public final class ApiPaths {
     public static final String USERS_SUGGEST = USERS + "/suggest";
     public static final String CONVERSATIONS = V1 + "/conversations";
     public static final String RECOMMENDATIONS = V1 + "/recommendations";
+    public static final String ACTIVITY = V1 + "/activity";
+    public static final String NOTIFICATIONS = V1 + "/notifications";
+    public static final String AUTHORS = V1 + "/authors";
+    public static final String ME_READING_GOAL = ME + "/reading-goal";
+    public static final String ME_STATS = ME + "/stats";
+    public static final String ME_STREAK = ME + "/streak";
     public static final String ADMIN_INSTANCE = V1 + "/admin/instance";
     public static final String ADMIN_USERS = V1 + "/admin/users";
     public static final String ADMIN_USERS_SUGGEST = ADMIN_USERS + "/suggest";

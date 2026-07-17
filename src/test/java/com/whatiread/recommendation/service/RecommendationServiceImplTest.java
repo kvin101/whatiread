@@ -27,6 +27,7 @@ import com.whatiread.recommendation.domain.RecommendationStatus;
 import com.whatiread.recommendation.domain.RecommendationTargetType;
 import com.whatiread.recommendation.repository.RecommendationRepository;
 import com.whatiread.recommendation.repository.RecommendationSuggestionRepository;
+import com.whatiread.notification.service.NotificationService;
 import com.whatiread.shared.event.RecommendationAcceptedEvent;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
@@ -89,6 +90,8 @@ class RecommendationServiceImplTest {
     private BusinessMetrics businessMetrics;
     @Mock
     private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private RecommendationServiceImpl recommendationService;
@@ -121,9 +124,13 @@ class RecommendationServiceImplTest {
                 UUID.randomUUID(),
                 null,
                 3,
+                false,
                 Instant.now(),
                 Instant.now(),
-                "From User"
+                "From User",
+                null,
+                null,
+                null
         );
     }
 

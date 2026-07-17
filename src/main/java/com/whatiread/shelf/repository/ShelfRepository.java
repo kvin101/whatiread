@@ -26,6 +26,10 @@ public interface ShelfRepository extends JpaRepository<Shelf, UUID> {
 
     boolean existsByOwner_IdAndSlug(UUID ownerId, String slug);
 
+    boolean existsByOwner_IdAndVisibility(UUID ownerId, ShelfVisibility visibility);
+
+    boolean existsByOwner_IdAndVisibilityAndIdNot(UUID ownerId, ShelfVisibility visibility, UUID shelfId);
+
     Page<Shelf> findByVisibilityOrderByUpdatedAtDesc(ShelfVisibility visibility, Pageable pageable);
 
     /**
@@ -67,4 +71,14 @@ public interface ShelfRepository extends JpaRepository<Shelf, UUID> {
             @Param("friendIds") List<UUID> friendIds,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT s.id FROM Shelf s
+            WHERE s.owner.id IN :friendIds
+            AND s.visibility IN (
+                com.whatiread.shelf.domain.ShelfVisibility.PUBLIC,
+                com.whatiread.shelf.domain.ShelfVisibility.FRIENDS
+            )
+            """)
+    List<UUID> findVisibleFriendShelfIds(@Param("friendIds") List<UUID> friendIds);
 }

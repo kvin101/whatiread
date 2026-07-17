@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
+  Bell,
   BookMarked,
   Compass,
+  Home,
   LayoutGrid,
   LogOut,
   MessageCircle,
@@ -12,13 +14,15 @@ import {
   ThumbsUp,
   Users,
   Zap,
+  Activity,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { conversationsApi } from '../../api/conversations'
 import { useChatConnectionState } from '../../chat/ChatProvider'
 import { friendsApi } from '../../api/friends'
 import { recommendationsApi } from '../../api/recommendations'
+import { notificationsApi } from '../../api/notifications'
 import { APP_ROUTES } from '../../api/paths'
 import { useAuth } from '../../auth/AuthContext'
 import { copy } from '../../lib/copy'
@@ -29,16 +33,26 @@ import { Button } from '../ui/Button'
 import { triggerComicBurst, useComicBurst } from '../ui/ComicBurst'
 import { PageTransition } from './PageTransition'
 
-const primaryNav = [
+const mobileNav = [
+  { to: APP_ROUTES.home, label: copy.nav.home, icon: Home, short: 'Home' },
   { to: APP_ROUTES.library, label: copy.nav.library, icon: BookMarked, short: 'Books' },
   { to: APP_ROUTES.shelves, label: copy.nav.shelves, icon: LayoutGrid, short: 'Shelves' },
-  { to: APP_ROUTES.explore, label: copy.nav.explore, icon: Compass, short: 'Explore' },
   { to: APP_ROUTES.messages, label: copy.nav.messages, icon: MessageCircle, short: 'Chat' },
+] as const
+
+const desktopPrimaryNav = [
+  { to: APP_ROUTES.home, label: copy.nav.home, icon: Home },
+  { to: APP_ROUTES.library, label: copy.nav.library, icon: BookMarked },
+  { to: APP_ROUTES.shelves, label: copy.nav.shelves, icon: LayoutGrid },
+  { to: APP_ROUTES.explore, label: copy.nav.explore, icon: Compass },
+  { to: APP_ROUTES.messages, label: copy.nav.messages, icon: MessageCircle },
 ] as const
 
 const moreNav = [
   { to: APP_ROUTES.friends, label: copy.nav.friends, icon: Users },
   { to: APP_ROUTES.recommendations, label: copy.nav.recommendations, icon: ThumbsUp },
+  { to: APP_ROUTES.activity, label: 'Activity', icon: Activity },
+  { to: APP_ROUTES.notifications, label: 'Notifications', icon: Bell },
   { to: APP_ROUTES.settings, label: copy.nav.settings, icon: Settings },
 ] as const
 
@@ -60,6 +74,7 @@ function NavItem({
   return (
     <NavLink
       to={to}
+      end={to === APP_ROUTES.home}
       onClick={(e) => compact && triggerComicBurst(e.currentTarget)}
       className={({ isActive }) =>
         cn(
@@ -74,9 +89,7 @@ function NavItem({
     >
       {({ isActive }) => (
         <>
-          {isActive && !compact && (
-            <span className="sr-only">Current page</span>
-          )}
+          {isActive && !compact && <span className="sr-only">Current page</span>}
           <span className="relative">
             <Icon className={cn(compact ? 'h-5 w-5' : 'h-5 w-5 shrink-0')} strokeWidth={isActive ? 2.25 : 1.75} />
             {badge > 0 && (
@@ -125,35 +138,49 @@ export function AppShell() {
   })
   const pendingFriendRequests = incomingFriendRequests.length
 
+  const { data: notifications = [] } = useQuery({
+    queryKey: QUERY_KEYS.notifications.all,
+    queryFn: notificationsApi.list,
+    enabled: !!user,
+    refetchInterval: chatConnected ? false : 30_000,
+    staleTime: 5_000,
+  })
+  const unreadNotifications = useMemo(
+    () => notifications.filter((n) => !n.readAt).length,
+    [notifications],
+  )
+
   useEffect(() => {
     const base = copy.brand.name
-    const total = unreadMessages + unreadRecs + pendingFriendRequests
+    const total = unreadMessages + unreadRecs + pendingFriendRequests + unreadNotifications
     document.title = total > 0 ? `(${total}) ${base}` : base
     return () => {
       document.title = base
     }
-  }, [unreadMessages, unreadRecs, pendingFriendRequests])
+  }, [unreadMessages, unreadRecs, pendingFriendRequests, unreadNotifications])
 
   const badgeFor = (to: string) => {
     if (to === APP_ROUTES.messages) return unreadMessages
     if (to === APP_ROUTES.recommendations) return unreadRecs
     if (to === APP_ROUTES.friends) return pendingFriendRequests
+    if (to === APP_ROUTES.notifications) return unreadNotifications
     return 0
   }
 
-  const moreActive = moreNav.some((n) => location.pathname.startsWith(n.to))
-    || (user?.admin && location.pathname.startsWith(adminNav.to))
+  const moreActive =
+    moreNav.some((n) => location.pathname.startsWith(n.to)) ||
+    (user?.admin && location.pathname.startsWith(adminNav.to))
 
-  const { ref: moreRef, handleClick: handleMoreClick } = useComicBurst(
-    () => setMoreOpen((o) => !o),
-  )
+  const { ref: moreRef, handleClick: handleMoreClick } = useComicBurst(() => setMoreOpen((o) => !o))
+
+  const moreBadge = moreNav.reduce((sum, n) => sum + badgeFor(n.to), 0)
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
       <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-white/8 glass-strong halftone-overlay halftone-subtle lg:flex">
         <div className="shrink-0 border-b border-white/8 px-4 py-4">
           <Link
-            to={APP_ROUTES.library}
+            to={APP_ROUTES.home}
             className="flex items-center gap-2.5 rounded-xl transition-opacity hover:opacity-90"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-dim border border-accent/20">
@@ -169,7 +196,7 @@ export function AppShell() {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-muted/70">Reading</p>
           <div className="space-y-0.5">
-            {primaryNav.map(({ to, label, icon }) => (
+            {desktopPrimaryNav.map(({ to, label, icon }) => (
               <NavItem key={to} to={to} label={label} icon={icon} badge={badgeFor(to)} />
             ))}
           </div>
@@ -178,9 +205,7 @@ export function AppShell() {
             {moreNav.map(({ to, label, icon }) => (
               <NavItem key={to} to={to} label={label} icon={icon} badge={badgeFor(to)} />
             ))}
-            {user?.admin && (
-              <NavItem to={adminNav.to} label={adminNav.label} icon={adminNav.icon} />
-            )}
+            {user?.admin && <NavItem to={adminNav.to} label={adminNav.label} icon={adminNav.icon} />}
           </div>
         </nav>
 
@@ -206,11 +231,23 @@ export function AppShell() {
 
       <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <header className="shrink-0 flex items-center justify-between glass border-b border-accent/10 px-4 py-3 lg:hidden">
-          <Link to={APP_ROUTES.library} className="flex items-center gap-2 hover:opacity-90">
+          <Link to={APP_ROUTES.home} className="flex items-center gap-2 hover:opacity-90">
             <Zap className="h-5 w-5 text-accent" fill="currentColor" />
             <span className="font-display text-lg font-bold tracking-tight manga-title">{copy.brand.name}</span>
           </Link>
           <div className="flex items-center gap-1">
+            <Link
+              to={APP_ROUTES.notifications}
+              className="relative rounded-xl p-2 transition-colors hover:bg-white/5"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-ink-muted" />
+              {unreadNotifications > 0 && (
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-void">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </Link>
             <Link
               to={APP_ROUTES.userProfile(user?.id ?? '')}
               className="rounded-xl p-1 transition-colors hover:bg-white/5"
@@ -225,33 +262,33 @@ export function AppShell() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col p-3 md:p-5">
+          <div className="flex h-full min-h-0 w-full flex-col p-3 md:p-5 lg:p-6">
             <PageTransition />
           </div>
         </main>
 
         <nav className="fixed bottom-0 inset-x-0 z-40 glass-strong border-t border-white/10 pb-[env(safe-area-inset-bottom)] lg:hidden">
           <div className="flex items-stretch justify-around px-1 pt-1">
-            {primaryNav.map(({ to, icon, short }) => (
-              <NavItem
-                key={to}
-                to={to}
-                label={short}
-                icon={icon}
-                badge={badgeFor(to)}
-                compact
-              />
+            {mobileNav.map(({ to, icon, short }) => (
+              <NavItem key={to} to={to} label={short} icon={icon} badge={badgeFor(to)} compact />
             ))}
             <button
               ref={moreRef}
               type="button"
               onClick={handleMoreClick}
               className={cn(
-                'flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition-all comic-btn',
-                moreActive || moreOpen ? 'text-accent bg-white/[0.06] border-l-2 border-l-accent' : 'text-ink-muted border-l-2 border-l-transparent',
+                'relative flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] font-medium transition-all comic-btn',
+                moreActive || moreOpen
+                  ? 'text-accent bg-white/[0.06] border-l-2 border-l-accent'
+                  : 'text-ink-muted border-l-2 border-l-transparent',
               )}
             >
               <MoreHorizontal className="h-5 w-5" strokeWidth={moreActive ? 2.25 : 1.75} />
+              {moreBadge > 0 && (
+                <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-void/50 bg-accent px-1 text-[10px] font-bold text-void">
+                  {moreBadge > 9 ? '9+' : moreBadge}
+                </span>
+              )}
               More
             </button>
           </div>
@@ -277,7 +314,9 @@ export function AppShell() {
                   className={({ isActive }) =>
                     cn(
                       'comic-btn relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors nav-link-glow',
-                      isActive ? 'bg-white/[0.06] text-accent border-l-2 border-l-accent nav-link-active' : 'text-ink-muted hover:bg-white/5 border-l-2 border-l-transparent',
+                      isActive
+                        ? 'bg-white/[0.06] text-accent border-l-2 border-l-accent nav-link-active'
+                        : 'text-ink-muted hover:bg-white/5 border-l-2 border-l-transparent',
                     )
                   }
                 >

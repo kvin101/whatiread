@@ -6,9 +6,11 @@ import com.whatiread.config.CacheConfig;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.service.UserLookupService;
 import com.whatiread.library.api.UserBookDto;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.domain.UserBook;
 import com.whatiread.library.port.UserBookPersistencePort;
+import com.whatiread.library.repository.UserBookRepository;
 import com.whatiread.library.service.LibraryService;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
@@ -26,11 +28,14 @@ import com.whatiread.shelf.api.ShelfBookDto;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.api.ShelfEventDto;
 import com.whatiread.shelf.api.ShelfMemberDto;
+import com.whatiread.shelf.api.ShelfReadingOverlapDto;
 import com.whatiread.shelf.api.ShelfShareLinkDto;
 import com.whatiread.shelf.api.SystemShelfDto;
 import com.whatiread.shelf.api.UpdateShelfBookRequest;
 import com.whatiread.shelf.api.UpdateShelfMemberRequest;
 import com.whatiread.shelf.api.UpdateShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfResponse;
 import com.whatiread.shelf.domain.ExploreShelfSource;
 import com.whatiread.shelf.domain.Shelf;
 import com.whatiread.shelf.domain.ShelfBook;
@@ -78,8 +83,11 @@ public class ShelfServiceImpl implements ShelfService {
     private final ShelfAccessService shelfAccessService;
     private final FriendshipService friendshipService;
     private final ShelfEventService shelfEventService;
+    private final SecretShelfService secretShelfService;
+    private final ShelfUnlockTokenService shelfUnlockTokenService;
     private final BusinessMetrics businessMetrics;
     private final CacheManager cacheManager;
+    private final UserBookRepository userBookRepository;
 
     public ShelfServiceImpl(
             ShelfRepository shelfRepository,
@@ -94,8 +102,11 @@ public class ShelfServiceImpl implements ShelfService {
             ShelfAccessService shelfAccessService,
             FriendshipService friendshipService,
             ShelfEventService shelfEventService,
+            SecretShelfService secretShelfService,
+            ShelfUnlockTokenService shelfUnlockTokenService,
             BusinessMetrics businessMetrics,
-            CacheManager cacheManager
+            CacheManager cacheManager,
+            UserBookRepository userBookRepository
     ) {
         this.shelfRepository = shelfRepository;
         this.shelfMemberRepository = shelfMemberRepository;
@@ -109,8 +120,11 @@ public class ShelfServiceImpl implements ShelfService {
         this.shelfAccessService = shelfAccessService;
         this.friendshipService = friendshipService;
         this.shelfEventService = shelfEventService;
+        this.secretShelfService = secretShelfService;
+        this.shelfUnlockTokenService = shelfUnlockTokenService;
         this.businessMetrics = businessMetrics;
         this.cacheManager = cacheManager;
+        this.userBookRepository = userBookRepository;
     }
 
     private static String formatDisplayName(User user) {
@@ -129,16 +143,25 @@ public class ShelfServiceImpl implements ShelfService {
     @Override
     public ShelfDto create(UUID userId, CreateShelfRequest request) {
         User owner = userLookupService.getPersistenceReference(userId);
+        ShelfVisibility visibility = request.visibilityOrDefault();
+        secretShelfService.requirePinWhenSecret(visibility, request.pin());
+        if (visibility == ShelfVisibility.SECRET) {
+            secretShelfService.ensureSingleSecretShelf(owner.getId(), null);
+        }
+
         String slug = uniqueSlug(owner.getId(), request.name());
         int sortOrder = nextSortOrder(owner.getId());
 
         Shelf shelf = new Shelf(owner, request.name().trim(), slug);
-        shelf.setVisibility(request.visibilityOrDefault());
+        shelf.setVisibility(visibility);
         if (StringUtils.hasText(request.description())) {
             shelf.setDescription(request.description().trim());
         }
         if (StringUtils.hasText(request.icon())) {
             shelf.setIcon(request.icon().trim());
+        }
+        if (visibility == ShelfVisibility.SECRET) {
+            shelf.setPinHash(secretShelfService.hashPin(request.pin()));
         }
         shelf.setSortOrder(sortOrder);
         shelfRepository.save(shelf);
@@ -247,7 +270,24 @@ public class ShelfServiceImpl implements ShelfService {
         }
         ShelfVisibility previousVisibility = shelf.getVisibility();
         if (request.visibility() != null) {
-            shelf.setVisibility(request.visibility());
+            ShelfVisibility nextVisibility = request.visibility();
+            if (nextVisibility == ShelfVisibility.SECRET) {
+                secretShelfService.ensureSingleSecretShelf(shelf.getOwner().getId(), shelf.getId());
+                secretShelfService.requirePinWhenSecret(nextVisibility, request.pin());
+                if (StringUtils.hasText(request.pin())) {
+                    shelf.setPinHash(secretShelfService.hashPin(request.pin()));
+                } else if (!StringUtils.hasText(shelf.getPinHash())) {
+                    throw new IllegalArgumentException("A 4-digit PIN is required for secret shelves");
+                }
+                if (previousVisibility != ShelfVisibility.SECRET) {
+                    secretShelfService.stripSharing(shelf);
+                }
+            } else if (previousVisibility == ShelfVisibility.SECRET) {
+                shelf.setPinHash(null);
+            }
+            shelf.setVisibility(nextVisibility);
+        } else if (shelf.getVisibility() == ShelfVisibility.SECRET && StringUtils.hasText(request.pin())) {
+            shelf.setPinHash(secretShelfService.hashPin(request.pin()));
         }
         if (request.description() != null) {
             shelf.setDescription(request.description().isBlank() ? null : request.description().trim());
@@ -293,6 +333,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Override
     public ShelfMemberDto addMember(UUID userId, UUID shelfId, AddShelfMemberRequest request) {
         Shelf shelf = getShelf(shelfId);
+        secretShelfService.enforceNotShareable(shelf);
         shelfAccessService.requireManageMembers(shelf, userId);
 
         if (request.role() == ShelfMemberRole.OWNER) {
@@ -388,6 +429,7 @@ public class ShelfServiceImpl implements ShelfService {
         clone.setDescription(source.getDescription());
         clone.setIcon(source.getIcon());
         clone.setSortOrder(sortOrder);
+        clone.setClonedFromShelf(source);
         shelfRepository.save(clone);
         shelfMemberRepository.save(new ShelfMember(clone, owner, ShelfMemberRole.OWNER, null));
         shelfEventService.record(
@@ -445,6 +487,7 @@ public class ShelfServiceImpl implements ShelfService {
         clone.setDescription(source.getDescription());
         clone.setIcon(source.getIcon());
         clone.setSortOrder(sortOrder);
+        clone.setClonedFromShelf(source);
         shelfRepository.save(clone);
         shelfMemberRepository.save(new ShelfMember(clone, owner, ShelfMemberRole.OWNER, null));
         shelfEventService.record(
@@ -466,6 +509,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Override
     public ShelfDto cloneFromShare(UUID userId, UUID token, CloneShelfRequest request) {
         Shelf source = resolveShelfFromShareToken(token);
+        secretShelfService.enforceNotShareable(source);
         if (source.getOwner().getId().equals(userId)) {
             throw new ConflictException("You already own this shelf");
         }
@@ -479,6 +523,7 @@ public class ShelfServiceImpl implements ShelfService {
         clone.setDescription(source.getDescription());
         clone.setIcon(source.getIcon());
         clone.setSortOrder(sortOrder);
+        clone.setClonedFromShelf(source);
         shelfRepository.save(clone);
         shelfMemberRepository.save(new ShelfMember(clone, owner, ShelfMemberRole.OWNER, null));
         shelfEventService.record(
@@ -501,6 +546,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Transactional(readOnly = true)
     public List<ShelfShareLinkDto> listShareLinks(UUID userId, UUID shelfId) {
         Shelf shelf = getShelf(shelfId);
+        secretShelfService.enforceNotShareable(shelf);
         shelfAccessService.requireManageMembers(shelf, userId);
         return shelfShareLinkRepository.findByShelf_IdOrderByCreatedAtDesc(shelfId).stream()
                 .map(this::toShareLinkDto)
@@ -510,6 +556,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Override
     public ShelfShareLinkDto createShareLink(UUID userId, UUID shelfId, CreateShelfShareLinkRequest request) {
         Shelf shelf = getShelf(shelfId);
+        secretShelfService.enforceNotShareable(shelf);
         shelfAccessService.requireManageMembers(shelf, userId);
         User creator = userLookupService.getPersistenceReference(userId);
         Instant expiresAt = request != null ? request.expiresAt() : null;
@@ -534,6 +581,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Transactional(readOnly = true)
     public SharedShelfDto getSharedShelf(UUID token) {
         Shelf shelf = resolveShelfFromShareToken(token);
+        secretShelfService.enforceNotShareable(shelf);
         UUID ownerId = shelf.getOwner().getId();
         List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelf.getId()).stream()
                 .filter(shelfAccessService::canViewShelfBookViaShareLink)
@@ -567,10 +615,24 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     @Override
+    public UnlockShelfResponse unlock(UUID userId, UUID shelfId, UnlockShelfRequest request) {
+        Shelf shelf = getShelf(shelfId);
+        shelfAccessService.requireOwner(shelf, userId);
+        if (!secretShelfService.isSecret(shelf)) {
+            throw new IllegalArgumentException("Shelf is not secret");
+        }
+        if (!secretShelfService.verifyPin(shelf, request.pin())) {
+            throw new ForbiddenException("Incorrect PIN");
+        }
+        return new UnlockShelfResponse(shelfUnlockTokenService.create(userId, shelfId));
+    }
+
+    @Override
     @Transactional(readOnly = true)
-    public List<ShelfBookDto> listBooks(UUID userId, UUID shelfId) {
+    public List<ShelfBookDto> listBooks(UUID userId, UUID shelfId, String unlockToken) {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireView(shelf, userId);
+        requireSecretShelfUnlocked(shelf, userId, unlockToken);
         UUID ownerId = shelf.getOwner().getId();
         List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId);
         Map<UUID, UserBookDto> booksById = shelfBookQueryService.loadShelfUserBooks(ownerId, entries);
@@ -598,9 +660,10 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     @Override
-    public ShelfBookDto addBook(UUID userId, UUID shelfId, AddShelfBookRequest request) {
+    public ShelfBookDto addBook(UUID userId, UUID shelfId, AddShelfBookRequest request, String unlockToken) {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireEdit(shelf, userId);
+        requireSecretShelfUnlocked(shelf, userId, unlockToken);
 
         UUID userBookId = resolveUserBookId(shelf, request);
         UserBook userBook = userBookPersistencePort.getOwnedReference(shelf.getOwner().getId(), userBookId);
@@ -626,9 +689,16 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     @Override
-    public ShelfBookDto updateBook(UUID userId, UUID shelfId, UUID userBookId, UpdateShelfBookRequest request) {
+    public ShelfBookDto updateBook(
+            UUID userId,
+            UUID shelfId,
+            UUID userBookId,
+            UpdateShelfBookRequest request,
+            String unlockToken
+    ) {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireEdit(shelf, userId);
+        requireSecretShelfUnlocked(shelf, userId, unlockToken);
 
         ShelfBook shelfBook = shelfBookRepository.findByShelf_IdAndUserBook_Id(shelfId, userBookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not on shelf"));
@@ -643,9 +713,10 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     @Override
-    public void removeBook(UUID userId, UUID shelfId, UUID userBookId) {
+    public void removeBook(UUID userId, UUID shelfId, UUID userBookId, String unlockToken) {
         Shelf shelf = getShelf(shelfId);
         shelfAccessService.requireEdit(shelf, userId);
+        requireSecretShelfUnlocked(shelf, userId, unlockToken);
 
         ShelfBook shelfBook = shelfBookRepository.findByShelf_IdAndUserBook_Id(shelfId, userBookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not on shelf"));
@@ -668,7 +739,7 @@ public class ShelfServiceImpl implements ShelfService {
     @Override
     @Transactional(readOnly = true)
     public Page<UserBookDto> listSystemShelfBooks(UUID userId, ReadingStatus status, Pageable pageable) {
-        return libraryService.list(userId, status, null, null, pageable);
+        return libraryService.list(userId, status, null, null, null, LibrarySort.UPDATED_DESC, pageable);
     }
 
     @Override
@@ -793,12 +864,65 @@ public class ShelfServiceImpl implements ShelfService {
         throw new IllegalArgumentException("Either userBookId or bookId is required");
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShelfReadingOverlapDto> listReadingOverlap(UUID userId, UUID shelfId) {
+        Shelf shelf = getShelf(shelfId);
+        shelfAccessService.requireView(shelf, userId);
+
+        List<UUID> memberIds = shelfMemberRepository.findByShelf_Id(shelfId).stream()
+                .map(member -> member.getUser().getId())
+                .toList();
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<ShelfBook> entries = shelfBookRepository.findByShelf_IdOrderByPositionAsc(shelfId);
+        List<UUID> bookIds = entries.stream()
+                .map(entry -> entry.getUserBook().getBook().getId())
+                .distinct()
+                .toList();
+        if (bookIds.isEmpty()) {
+            return List.of();
+        }
+
+        var reading = userBookRepository.findReadingByUsersAndBookIdsIn(memberIds, bookIds);
+        Map<UUID, String> titles = new java.util.HashMap<>();
+        Map<UUID, List<ShelfReadingOverlapDto.ShelfReadingMemberDto>> grouped = new java.util.LinkedHashMap<>();
+        for (var userBook : reading) {
+            UUID bookId = userBook.getBook().getId();
+            titles.putIfAbsent(bookId, userBook.getBook().getTitle());
+            grouped.computeIfAbsent(bookId, ignored -> new java.util.ArrayList<>())
+                    .add(new ShelfReadingOverlapDto.ShelfReadingMemberDto(
+                            userBook.getUser().getId(),
+                            formatDisplayName(userBook.getUser())
+                    ));
+        }
+
+        return grouped.entrySet().stream()
+                .map(entry -> new ShelfReadingOverlapDto(
+                        entry.getKey(),
+                        titles.get(entry.getKey()),
+                        entry.getValue()
+                ))
+                .toList();
+    }
+
+    private void requireSecretShelfUnlocked(Shelf shelf, UUID userId, String unlockToken) {
+        if (!secretShelfService.isSecret(shelf)) {
+            return;
+        }
+        secretShelfService.enforceOwnerOnly(shelf, userId);
+        shelfUnlockTokenService.requireValid(unlockToken, userId, shelf.getId());
+    }
+
     private ShelfDto toDto(Shelf shelf, UUID viewerId) {
         return toDto(shelf, viewerId, shelfBookQueryService.loadBookCounts(List.of(shelf)));
     }
 
     private ShelfDto toDto(Shelf shelf, UUID viewerId, Map<UUID, Integer> bookCounts) {
         ShelfMemberRole role = shelfAccessService.roleFor(shelf, viewerId).orElse(null);
+        Shelf clonedFrom = shelf.getClonedFromShelf();
         return new ShelfDto(
                 shelf.getId(),
                 shelf.getName(),
@@ -810,9 +934,13 @@ public class ShelfServiceImpl implements ShelfService {
                 shelf.getOwner().getId(),
                 role,
                 bookCounts.getOrDefault(shelf.getId(), 0),
+                shelf.getVisibility() == ShelfVisibility.SECRET,
                 shelf.getCreatedAt(),
                 shelf.getUpdatedAt(),
-                formatDisplayName(shelf.getOwner())
+                formatDisplayName(shelf.getOwner()),
+                clonedFrom != null ? clonedFrom.getId() : null,
+                clonedFrom != null ? clonedFrom.getName() : null,
+                clonedFrom != null ? formatDisplayName(clonedFrom.getOwner()) : null
         );
     }
 

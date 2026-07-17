@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.whatiread.config.BusinessMetrics;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.service.UserLookupService;
+import com.whatiread.notification.service.NotificationService;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.social.api.CreateFriendRequestRequest;
 import com.whatiread.social.domain.FriendRequest;
@@ -50,6 +51,8 @@ class FriendServiceImplTest {
     private SimpMessagingTemplate messagingTemplate;
     @Mock
     private CacheManager cacheManager;
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private FriendServiceImpl friendService;
@@ -200,8 +203,19 @@ class FriendServiceImplTest {
         com.whatiread.social.domain.Friendship friendship =
                 new com.whatiread.social.domain.Friendship(requester, addressee);
         when(friendshipRepository.findByUser_Id(requesterId)).thenReturn(List.of(friendship));
+        when(blockService.isBlockedEitherWay(requesterId, addresseeId)).thenReturn(false);
 
         assertThat(friendService.listFriends(requesterId)).hasSize(1);
+    }
+
+    @Test
+    void listFriendsHidesBlockedUsers() {
+        com.whatiread.social.domain.Friendship friendship =
+                new com.whatiread.social.domain.Friendship(requester, addressee);
+        when(friendshipRepository.findByUser_Id(requesterId)).thenReturn(List.of(friendship));
+        when(blockService.isBlockedEitherWay(requesterId, addresseeId)).thenReturn(true);
+
+        assertThat(friendService.listFriends(requesterId)).isEmpty();
     }
 
     @Test

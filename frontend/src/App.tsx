@@ -8,25 +8,37 @@ import { AppShell } from './components/layout/AppShell'
 import { AdminRoute } from './auth/AdminRoute'
 import { APP_ROUTES } from './api/paths'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { TapEffect } from './components/ui/TapEffect'
 
 const SetupPage = lazy(() => import('./pages/SetupPage').then((module) => ({ default: module.SetupPage })))
 const LoginPage = lazy(() => import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })))
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then((module) => ({ default: module.RegisterPage })))
 const SharedShelfPage = lazy(() => import('./pages/SharedShelfPage').then((module) => ({ default: module.SharedShelfPage })))
+const HomePage = lazy(() => import('./pages/HomePage').then((module) => ({ default: module.HomePage })))
 const LibraryPage = lazy(() => import('./pages/LibraryPage').then((module) => ({ default: module.LibraryPage })))
 const ShelvesPage = lazy(() => import('./pages/ShelvesPage').then((module) => ({ default: module.ShelvesPage })))
 const ShelfDetailPage = lazy(() => import('./pages/ShelfDetailPage').then((module) => ({ default: module.ShelfDetailPage })))
 const ExplorePage = lazy(() => import('./pages/ExplorePage').then((module) => ({ default: module.ExplorePage })))
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage').then((module) => ({ default: module.UserProfilePage })))
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((module) => ({ default: module.FriendsPage })))
+const SentFriendRequestsPage = lazy(() =>
+  import('./pages/SentFriendRequestsPage').then((module) => ({ default: module.SentFriendRequestsPage })),
+)
 const MessagesPage = lazy(() => import('./pages/MessagesPage').then((module) => ({ default: module.MessagesPage })))
 const RecommendationsPage = lazy(() => import('./pages/RecommendationsPage').then((module) => ({ default: module.RecommendationsPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage').then((module) => ({ default: module.AdminUsersPage })))
+const SystemShelfPage = lazy(() => import('./pages/SystemShelfPage').then((module) => ({ default: module.SystemShelfPage })))
+const ActivityPage = lazy(() => import('./pages/ActivityPage').then((module) => ({ default: module.ActivityPage })))
+const AuthorPage = lazy(() => import('./pages/AuthorPage').then((module) => ({ default: module.AuthorPage })))
+const BookPage = lazy(() => import('./pages/BookPage').then((module) => ({ default: module.BookPage })))
+const PublicShelfPage = lazy(() => import('./pages/PublicShelfPage').then((module) => ({ default: module.PublicShelfPage })))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })))
 
 export default function App() {
   return (
     <BrowserRouter>
+      <TapEffect />
       <AuthProvider>
         <AuthQuerySync />
         <Suspense
@@ -50,13 +62,20 @@ export default function App() {
                 </ErrorBoundary>
               }
             >
-              <Route index element={<Navigate to={APP_ROUTES.library} replace />} />
+              <Route index element={<HomePage />} />
               <Route path="library" element={<LibraryPage />} />
               <Route path="shelves" element={<ShelvesPage />} />
+              <Route path="shelves/system/:status" element={<SystemShelfPage />} />
               <Route path="shelves/:shelfId" element={<ShelfDetailPage />} />
               <Route path="explore" element={<ExplorePage />} />
+              <Route path="activity" element={<ActivityPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="books/:bookId" element={<BookPage />} />
+              <Route path="authors/:slug" element={<AuthorPage />} />
+              <Route path="u/:ownerId/s/:slug" element={<PublicShelfPage />} />
               <Route path="users/:userId" element={<UserProfilePage />} />
               <Route path="friends" element={<FriendsPage />} />
+              <Route path="friends/requests/sent" element={<SentFriendRequestsPage />} />
               <Route
                 path="messages"
                 element={
@@ -76,7 +95,7 @@ export default function App() {
                 }
               />
             </Route>
-            <Route path="*" element={<Navigate to={APP_ROUTES.library} replace />} />
+            <Route path="*" element={<Navigate to={APP_ROUTES.home} replace />} />
           </Routes>
         </Suspense>
       </AuthProvider>

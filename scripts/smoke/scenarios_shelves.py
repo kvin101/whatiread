@@ -49,6 +49,7 @@ def run_shelves_extended(ctx: SmokeContext, r: Runner) -> None:
 
     clone = ctx.client.post(f"/shelves/{s.shelf_id}/clone", token=u2.access_token, json_body={"name": "Cloned shelf"})
     r.check_status("shelf-clone", 201, clone.status)
+    s.clone_shelf_id = clone.field("id", default="")
 
     explore = ctx.client.get("/shelves/explore", token=u2.access_token)
     r.check_status("explore-feed", 200, explore.status)
@@ -58,19 +59,19 @@ def run_shelves_extended(ctx: SmokeContext, r: Runner) -> None:
         has_public = any(item.get("id") == s.public_shelf_id for item in content)
     r.check_bool("explore-includes-public", True, has_public)
 
-    secret = ctx.client.post("/shelves", token=u1.access_token, json_body={"name": "Secret Share", "visibility": "SECRET"})
-    s.secret_shelf_id = secret.field("id", default="")
-    ctx.client.post(f"/shelves/{s.secret_shelf_id}/books", token=u1.access_token, json_body={"userBookId": s.user_book_id})
+    share_shelf = ctx.client.post("/shelves", token=u1.access_token, json_body={"name": "Share Link Shelf", "visibility": "PRIVATE"})
+    s.share_shelf_id = share_shelf.field("id", default="")
+    ctx.client.post(f"/shelves/{s.share_shelf_id}/books", token=u1.access_token, json_body={"userBookId": s.user_book_id})
 
-    link = ctx.client.post(f"/shelves/{s.secret_shelf_id}/share-links", token=u1.access_token, json_body={})
+    link = ctx.client.post(f"/shelves/{s.share_shelf_id}/share-links", token=u1.access_token, json_body={})
     r.check_status("share-link-create", 201, link.status)
     s.share_token = link.field("token", default="")
     s.share_link_id = link.field("id", default="")
 
     r.check_status("share-link-public-view", 200, ctx.client.get(f"/public/shelves/share/{s.share_token}").status)
     r.check_status("share-link-clone", 201, ctx.client.post(f"/shelves/share/{s.share_token}/clone", token=u3.access_token, json_body={"name": "From share link"}).status)
-    r.check_status("share-link-non-manager-denied", 403, ctx.client.post(f"/shelves/{s.secret_shelf_id}/share-links", token=u3.access_token, json_body={}).status)
-    r.check_status("share-link-revoke", 204, ctx.client.delete(f"/shelves/{s.secret_shelf_id}/share-links/{s.share_link_id}", token=u1.access_token).status)
+    r.check_status("share-link-non-manager-denied", 403, ctx.client.post(f"/shelves/{s.share_shelf_id}/share-links", token=u3.access_token, json_body={}).status)
+    r.check_status("share-link-revoke", 204, ctx.client.delete(f"/shelves/{s.share_shelf_id}/share-links/{s.share_link_id}", token=u1.access_token).status)
     r.check_status("share-link-revoked-denied", 403, ctx.client.get(f"/public/shelves/share/{s.share_token}").status)
 
     r.check_status("shelf-remove-member", 204, ctx.client.delete(f"/shelves/{s.shelf_id}/members/{u2.user_id}", token=u1.access_token).status)

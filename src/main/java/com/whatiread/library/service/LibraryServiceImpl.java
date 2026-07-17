@@ -14,12 +14,14 @@ import com.whatiread.library.api.UpdateUserBookNoteRequest;
 import com.whatiread.library.api.UpdateUserBookRequest;
 import com.whatiread.library.api.UserBookDto;
 import com.whatiread.library.api.UserBookNoteDto;
+import com.whatiread.library.domain.LibrarySort;
 import com.whatiread.library.domain.ReadingStatus;
 import com.whatiread.library.domain.UserBook;
 import com.whatiread.library.domain.UserBookNote;
 import com.whatiread.library.port.ShelfBookQueryPort;
 import com.whatiread.library.repository.UserBookNoteRepository;
 import com.whatiread.library.repository.UserBookRepository;
+import com.whatiread.reading.service.ReadingStreakService;
 import com.whatiread.shared.api.CursorPage;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
@@ -42,6 +44,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +59,7 @@ public class LibraryServiceImpl implements LibraryService {
     private final BookPersistencePort bookPersistencePort;
     private final ShelfBookQueryPort shelfBookQueryPort;
     private final BusinessMetrics businessMetrics;
+    private final ReadingStreakService readingStreakService;
 
     public LibraryServiceImpl(
             UserBookRepository userBookRepository,
@@ -64,7 +68,8 @@ public class LibraryServiceImpl implements LibraryService {
             BookService bookService,
             BookPersistencePort bookPersistencePort,
             ShelfBookQueryPort shelfBookQueryPort,
-            BusinessMetrics businessMetrics
+            BusinessMetrics businessMetrics,
+            ReadingStreakService readingStreakService
     ) {
         this.userBookRepository = userBookRepository;
         this.userBookNoteRepository = userBookNoteRepository;
@@ -73,6 +78,7 @@ public class LibraryServiceImpl implements LibraryService {
         this.bookPersistencePort = bookPersistencePort;
         this.shelfBookQueryPort = shelfBookQueryPort;
         this.businessMetrics = businessMetrics;
+        this.readingStreakService = readingStreakService;
     }
 
     private static List<UserBook> dedupeByWork(List<UserBook> entries) {
@@ -115,46 +121,70 @@ public class LibraryServiceImpl implements LibraryService {
             userBook.setProgressPages(request.progressPages());
         }
         applyStatusSideEffects(userBook, userBook.getStatus(), userBook.getStatus());
-        UserBookDto saved = toDto(userBookRepository.save(userBook));
+        UserBook saved = userBookRepository.save(userBook);
+        if (request.status() == ReadingStatus.READING
+                || request.progressPages() != null) {
+            readingStreakService.recordActivity(userId);
+        }
         businessMetrics.recordBookAddedToLibrary();
-        return saved;
+        return toDto(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UserBookDto> list(UUID userId, ReadingStatus status, UUID shelfId, String query, Pageable pageable) {
+    public Page<UserBookDto> list(
+            UUID userId,
+            ReadingStatus status,
+            UUID shelfId,
+            UUID authorId,
+            String query,
+            LibrarySort sort,
+            Pageable pageable
+    ) {
         String q = query != null ? query.trim() : "";
+        Pageable sortedPageable = withLibrarySort(pageable, sort);
         Page<UserBook> page;
         List<UUID> shelfUserBookIds = shelfId != null
                 ? shelfBookQueryPort.findUserBookIdsOnShelf(userId, shelfId)
                 : List.of();
         if (shelfId != null && shelfUserBookIds.isEmpty()) {
-            return Page.empty(pageable);
+            return Page.empty(sortedPageable);
         }
         if (!q.isEmpty()) {
             if (shelfId != null) {
                 page = status == null
-                        ? userBookRepository.searchByUserIdAndIdIn(userId, shelfUserBookIds, q, pageable)
-                        : userBookRepository.searchByUserIdAndStatusAndIdIn(userId, status, shelfUserBookIds, q, pageable);
+                        ? userBookRepository.searchByUserIdAndIdIn(userId, shelfUserBookIds, q, sortedPageable)
+                        : userBookRepository.searchByUserIdAndStatusAndIdIn(
+                                userId, status, shelfUserBookIds, q, sortedPageable);
+            } else if (authorId != null) {
+                page = status == null
+                        ? userBookRepository.findByUserIdAndAuthorId(userId, authorId, sortedPageable)
+                        : userBookRepository.findByUserIdAndStatusAndAuthorId(
+                                userId, status, authorId, sortedPageable);
             } else if (status == null) {
-                page = userBookRepository.searchByUserId(userId, q, pageable);
+                page = userBookRepository.searchByUserId(userId, q, sortedPageable);
             } else {
-                page = userBookRepository.searchByUserIdAndStatus(userId, status, q, pageable);
+                page = userBookRepository.searchByUserIdAndStatus(userId, status, q, sortedPageable);
             }
         } else if (shelfId != null) {
             page = status == null
-                    ? userBookRepository.findByUserIdAndIdIn(userId, shelfUserBookIds, pageable)
-                    : userBookRepository.findByUserIdAndStatusAndIdIn(userId, status, shelfUserBookIds, pageable);
+                    ? userBookRepository.findByUserIdAndIdIn(userId, shelfUserBookIds, sortedPageable)
+                    : userBookRepository.findByUserIdAndStatusAndIdIn(
+                            userId, status, shelfUserBookIds, sortedPageable);
+        } else if (authorId != null) {
+            page = status == null
+                    ? userBookRepository.findByUserIdAndAuthorId(userId, authorId, sortedPageable)
+                    : userBookRepository.findByUserIdAndStatusAndAuthorId(userId, status, authorId, sortedPageable);
         } else if (status == null) {
-            page = userBookRepository.findByUserId(userId, pageable);
+            page = userBookRepository.findByUserId(userId, sortedPageable);
         } else {
-            page = userBookRepository.findByUserIdAndStatus(userId, status, pageable);
+            page = userBookRepository.findByUserIdAndStatus(userId, status, sortedPageable);
         }
         List<UserBook> unique = dedupeByWork(page.getContent());
         long adjustedTotal = Math.max(0, page.getTotalElements() - (page.getNumberOfElements() - unique.size()));
         return new PageImpl<>(
                 unique.stream().map(this::toDto).toList(),
-                pageable,
+                sortedPageable,
                 adjustedTotal
         );
     }
@@ -165,17 +195,21 @@ public class LibraryServiceImpl implements LibraryService {
             UUID userId,
             ReadingStatus status,
             UUID shelfId,
+            UUID authorId,
             String query,
+            LibrarySort sort,
             String cursor,
             int limit
     ) {
-        if (shelfId != null || (query != null && !query.isBlank())) {
+        if (shelfId != null || authorId != null || (query != null && !query.isBlank()) || sort != LibrarySort.UPDATED_DESC) {
             Page<UserBookDto> page = list(
                     userId,
                     status,
                     shelfId,
+                    authorId,
                     query,
-                    PageRequest.of(0, Math.max(1, limit))
+                    sort,
+                    PageRequest.of(0, Math.max(1, limit), toSort(sort))
             );
             return new CursorPage<>(page.getContent(), null, page.hasNext());
         }
@@ -281,6 +315,9 @@ public class LibraryServiceImpl implements LibraryService {
         applyStatusSideEffects(userBook, previousStatus, userBook.getStatus());
         syncStoredPercent(userBook);
         UserBook saved = userBookRepository.save(userBook);
+        if (request.status() != null || request.progressPages() != null || request.progressPercent() != null) {
+            readingStreakService.recordActivity(userId);
+        }
         if (Boolean.TRUE.equals(request.clearRating()) || request.rating() != null) {
             bookService.refreshAggregatedRating(bookId);
         }
@@ -313,6 +350,7 @@ public class LibraryServiceImpl implements LibraryService {
         User author = userLookupService.getPersistenceReference(userId);
         UserBookNote note = new UserBookNote(userBook, author, request.body().trim());
         userBook.addNote(note);
+        readingStreakService.recordActivity(userId);
         return toNoteDto(userBookNoteRepository.save(note));
     }
 
@@ -322,6 +360,7 @@ public class LibraryServiceImpl implements LibraryService {
         UserBookNote note = userBookNoteRepository.findByIdAndUserBook_IdAndUserBook_User_Id(noteId, userBookId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Note not found"));
         note.setBody(request.body().trim());
+        readingStreakService.recordActivity(userId);
         return toNoteDto(userBookNoteRepository.save(note));
     }
 
@@ -532,5 +571,21 @@ public class LibraryServiceImpl implements LibraryService {
                 note.getCreatedAt(),
                 note.getUpdatedAt()
         );
+    }
+
+    private static Pageable withLibrarySort(Pageable pageable, LibrarySort sort) {
+        Sort effectiveSort = toSort(sort != null ? sort : LibrarySort.UPDATED_DESC);
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), effectiveSort);
+    }
+
+    private static Sort toSort(LibrarySort sort) {
+        return switch (sort) {
+            case TITLE_ASC -> Sort.by("book.title").ascending();
+            case FINISHED_DESC -> Sort.by(Sort.Order.desc("finishedAt").nullsLast());
+            case UPDATED_DESC -> Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id"));
+        };
     }
 }

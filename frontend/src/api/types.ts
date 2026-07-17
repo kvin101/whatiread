@@ -144,6 +144,68 @@ export interface AdminUserSuggestResult {
   email: string
 }
 
+export type LibrarySortParam = 'UPDATED_DESC' | 'TITLE_ASC' | 'FINISHED_DESC'
+
+export interface ReadingGoal {
+  year: number
+  targetBooks?: number | null
+  targetPages?: number | null
+}
+
+export interface ReadingStats {
+  year: number
+  booksRead: number
+  pagesRead: number
+  targetBooks?: number | null
+  targetPages?: number | null
+  booksProgressPercent?: number | null
+  pagesProgressPercent?: number | null
+}
+
+export interface ReadingStreak {
+  currentStreak: number
+  longestStreak: number
+  lastActivityDate?: string | null
+}
+
+export interface ActivityItem {
+  id: string
+  eventType: ShelfEventType
+  actorId: string
+  actorDisplayName: string
+  shelfId: string
+  shelfName: string
+  shelfOwnerId: string
+  shelfOwnerDisplayName: string
+  payload?: Record<string, string>
+  createdAt: string
+}
+
+export type NotificationType =
+  | 'FRIEND_REQUEST'
+  | 'RECOMMENDATION'
+  | 'MESSAGE'
+  | 'MENTION'
+  | 'SHELF_INVITE'
+  | 'COMMENT_REPLY'
+
+export interface AppNotification {
+  id: string
+  type: NotificationType
+  payload?: Record<string, string>
+  readAt?: string | null
+  createdAt: string
+}
+
+export interface Author {
+  id: string
+  slug: string
+  name: string
+  bio?: string | null
+  photoUrl?: string | null
+  openLibraryAuthorId?: string | null
+}
+
 export interface UserBookNote {
   id: string
   body: string
@@ -221,6 +283,7 @@ export interface Shelf {
   description?: string
   icon?: string
   visibility: ShelfVisibility
+  requiresPin: boolean
   sortOrder: number
   ownerId: string
   ownerDisplayName?: string
@@ -228,6 +291,15 @@ export interface Shelf {
   bookCount: number
   createdAt: string
   updatedAt: string
+  clonedFromShelfId?: string | null
+  clonedFromShelfName?: string | null
+  clonedFromOwnerDisplayName?: string | null
+}
+
+export interface ShelfReadingOverlap {
+  bookId: string
+  bookTitle: string
+  readers: { userId: string; displayName: string }[]
 }
 
 export interface ShelfMember {

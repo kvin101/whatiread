@@ -43,10 +43,22 @@ export function ShelfCard({
               <h3 className="font-display text-lg font-semibold text-ink group-hover:text-accent transition-colors line-clamp-2">
                 {shelf.name}
               </h3>
-              <Icon
-                className="h-4 w-4 shrink-0 text-ink-muted"
-                aria-label={VISIBILITY_LABELS[shelf.visibility]}
-              />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Icon
+                  className="h-4 w-4 text-ink-muted"
+                  aria-label={VISIBILITY_LABELS[shelf.visibility]}
+                />
+                {'currentUserRole' in shelf && shelf.currentUserRole && shelf.currentUserRole !== 'OWNER' && (
+                  <span className="rounded-full bg-sage/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage">
+                    {shelf.currentUserRole.toLowerCase()}
+                  </span>
+                )}
+                {'requiresPin' in shelf && shelf.requiresPin && (
+                  <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                    PIN
+                  </span>
+                )}
+              </div>
             </div>
             {shelf.description && (
               <p className="mt-1 text-sm text-ink-muted line-clamp-2 panel-text">{shelf.description}</p>

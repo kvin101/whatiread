@@ -20,6 +20,7 @@ import com.whatiread.recommendation.domain.RecommendationStatus;
 import com.whatiread.recommendation.domain.RecommendationTargetType;
 import com.whatiread.recommendation.repository.RecommendationRepository;
 import com.whatiread.recommendation.repository.RecommendationSuggestionRepository;
+import com.whatiread.notification.service.NotificationService;
 import com.whatiread.shared.event.RecommendationAcceptedEvent;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ForbiddenException;
@@ -58,6 +59,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final OutboxEventPublisher outboxEventPublisher;
     private final BusinessMetrics businessMetrics;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     public RecommendationServiceImpl(
             RecommendationRepository recommendationRepository,
@@ -71,7 +73,8 @@ public class RecommendationServiceImpl implements RecommendationService {
             ShelfService shelfService,
             OutboxEventPublisher outboxEventPublisher,
             BusinessMetrics businessMetrics,
-            SimpMessagingTemplate messagingTemplate
+            SimpMessagingTemplate messagingTemplate,
+            NotificationService notificationService
     ) {
         this.recommendationRepository = recommendationRepository;
         this.suggestionRepository = suggestionRepository;
@@ -85,6 +88,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.outboxEventPublisher = outboxEventPublisher;
         this.businessMetrics = businessMetrics;
         this.messagingTemplate = messagingTemplate;
+        this.notificationService = notificationService;
     }
 
     private static void validateFriendRecommendation(UUID fromUserId, UUID toUserId) {
@@ -243,6 +247,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private RecommendationDto persistAndNotify(Recommendation recommendation, UUID toUserId) {
         RecommendationDto saved = toDto(recommendationRepository.save(recommendation), Map.of());
+        notificationService.notifyRecommendation(
+                toUserId,
+                saved.id(),
+                saved.fromUser().id(),
+                saved.fromUser().displayName()
+        );
         messagingTemplate.convertAndSendToUser(
                 toUserId.toString(),
                 "/queue/recommendations",
@@ -416,9 +426,13 @@ public class RecommendationServiceImpl implements RecommendationService {
                 shelf.getOwner().getId(),
                 null,
                 bookCount,
+                shelf.getVisibility() == com.whatiread.shelf.domain.ShelfVisibility.SECRET,
                 shelf.getCreatedAt(),
                 shelf.getUpdatedAt(),
-                DisplayNames.format(shelf.getOwner())
+                DisplayNames.format(shelf.getOwner()),
+                null,
+                null,
+                null
         );
     }
 

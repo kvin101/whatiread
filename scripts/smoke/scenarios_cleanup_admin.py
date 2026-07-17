@@ -17,6 +17,9 @@ def run_cleanup(ctx: SmokeContext, r: Runner) -> None:
     r.check_status("library-delete", 204, ctx.client.delete(f"/library/{s.user_book_id}", token=u1.access_token).status)
     r.check_status("library-deleted-not-found", 404, ctx.client.get(f"/library/{s.user_book_id}", token=u1.access_token).status)
     r.check_status("friend-unfriend", 204, ctx.client.delete(f"/friends/{u2.user_id}", token=u1.access_token).status)
+    u3 = ctx.users.get("u3")
+    if u3:
+        ctx.client.delete(f"/friends/{u3.user_id}", token=u1.access_token)
     friends = ctx.client.get("/friends", token=u1.access_token)
     r.check_status("friends-empty-after-unfriend", 200, friends.status)
     r.check_bool("friends-list-empty", True, isinstance(friends.json, list) and len(friends.json) == 0)

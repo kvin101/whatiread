@@ -25,3 +25,14 @@ npm run build
 ```
 
 Production image: `frontend/Dockerfile` (nginx).
+
+## Browser E2E tests
+
+Playwright tests open Chromium and walk every app route against a running stack. Details: [e2e/README.md](./e2e/README.md).
+
+```bash
+npm run test:e2e:install   # once
+npm run test:e2e           # headless
+npm run test:e2e:headed    # visible browser
+npm run test:e2e:ui        # interactive mode
+```

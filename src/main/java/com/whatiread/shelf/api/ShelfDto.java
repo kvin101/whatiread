@@ -16,8 +16,12 @@ public record ShelfDto(
         UUID ownerId,
         ShelfMemberRole currentUserRole,
         long bookCount,
+        boolean requiresPin,
         Instant createdAt,
         Instant updatedAt,
-        String ownerDisplayName
+        String ownerDisplayName,
+        UUID clonedFromShelfId,
+        String clonedFromShelfName,
+        String clonedFromOwnerDisplayName
 ) {
 }

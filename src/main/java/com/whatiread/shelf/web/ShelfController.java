@@ -13,10 +13,14 @@ import com.whatiread.shelf.api.ShelfBookDto;
 import com.whatiread.shelf.api.ShelfDto;
 import com.whatiread.shelf.api.ShelfEventDto;
 import com.whatiread.shelf.api.ShelfMemberDto;
+import com.whatiread.shelf.api.ShelfReadingOverlapDto;
 import com.whatiread.shelf.api.SystemShelfDto;
 import com.whatiread.shelf.api.UpdateShelfBookRequest;
 import com.whatiread.shelf.api.UpdateShelfMemberRequest;
 import com.whatiread.shelf.api.UpdateShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfRequest;
+import com.whatiread.shelf.api.UnlockShelfResponse;
+import com.whatiread.shared.security.SecurityConstants;
 import com.whatiread.shelf.service.ShelfService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -33,6 +37,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -75,6 +80,11 @@ public class ShelfController {
         return shelfService.listSystemShelfBooks(userId, status, pageable);
     }
 
+    @GetMapping("/{shelfId}/reading-overlap")
+    List<ShelfReadingOverlapDto> readingOverlap(@CurrentUserId UUID userId, @PathVariable UUID shelfId) {
+        return shelfService.listReadingOverlap(userId, shelfId);
+    }
+
     @GetMapping("/{shelfId}")
     ShelfDto get(@CurrentUserId UUID userId, @PathVariable UUID shelfId) {
         return shelfService.get(userId, shelfId);
@@ -83,6 +93,15 @@ public class ShelfController {
     @PatchMapping("/{shelfId}")
     ShelfDto update(@CurrentUserId UUID userId, @PathVariable UUID shelfId, @Valid @RequestBody UpdateShelfRequest request) {
         return shelfService.update(userId, shelfId, request);
+    }
+
+    @PostMapping("/{shelfId}/unlock")
+    UnlockShelfResponse unlock(
+            @CurrentUserId UUID userId,
+            @PathVariable UUID shelfId,
+            @Valid @RequestBody UnlockShelfRequest request
+    ) {
+        return shelfService.unlock(userId, shelfId, request);
     }
 
     @DeleteMapping("/{shelfId}")
@@ -152,8 +171,12 @@ public class ShelfController {
     }
 
     @GetMapping("/{shelfId}/books")
-    List<ShelfBookDto> listBooks(@CurrentUserId UUID userId, @PathVariable UUID shelfId) {
-        return shelfService.listBooks(userId, shelfId);
+    List<ShelfBookDto> listBooks(
+            @CurrentUserId UUID userId,
+            @PathVariable UUID shelfId,
+            @RequestHeader(value = SecurityConstants.SHELF_UNLOCK_HEADER, required = false) String unlockToken
+    ) {
+        return shelfService.listBooks(userId, shelfId, unlockToken);
     }
 
     @PostMapping("/{shelfId}/books")
@@ -161,9 +184,10 @@ public class ShelfController {
     ShelfBookDto addBook(
             @CurrentUserId UUID userId,
             @PathVariable UUID shelfId,
-            @Valid @RequestBody AddShelfBookRequest request
+            @Valid @RequestBody AddShelfBookRequest request,
+            @RequestHeader(value = SecurityConstants.SHELF_UNLOCK_HEADER, required = false) String unlockToken
     ) {
-        return shelfService.addBook(userId, shelfId, request);
+        return shelfService.addBook(userId, shelfId, request, unlockToken);
     }
 
     @PatchMapping("/{shelfId}/books/{userBookId}")
@@ -171,14 +195,20 @@ public class ShelfController {
             @CurrentUserId UUID userId,
             @PathVariable UUID shelfId,
             @PathVariable UUID userBookId,
-            @Valid @RequestBody UpdateShelfBookRequest request
+            @Valid @RequestBody UpdateShelfBookRequest request,
+            @RequestHeader(value = SecurityConstants.SHELF_UNLOCK_HEADER, required = false) String unlockToken
     ) {
-        return shelfService.updateBook(userId, shelfId, userBookId, request);
+        return shelfService.updateBook(userId, shelfId, userBookId, request, unlockToken);
     }
 
     @DeleteMapping("/{shelfId}/books/{userBookId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void removeBook(@CurrentUserId UUID userId, @PathVariable UUID shelfId, @PathVariable UUID userBookId) {
-        shelfService.removeBook(userId, shelfId, userBookId);
+    void removeBook(
+            @CurrentUserId UUID userId,
+            @PathVariable UUID shelfId,
+            @PathVariable UUID userBookId,
+            @RequestHeader(value = SecurityConstants.SHELF_UNLOCK_HEADER, required = false) String unlockToken
+    ) {
+        shelfService.removeBook(userId, shelfId, userBookId, unlockToken);
     }
 }

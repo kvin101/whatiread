@@ -4,8 +4,10 @@ import com.whatiread.config.CacheConfig;
 import com.whatiread.config.BusinessMetrics;
 import com.whatiread.identity.domain.User;
 import com.whatiread.identity.service.UserLookupService;
+import com.whatiread.notification.service.NotificationService;
 import com.whatiread.shared.exception.ConflictException;
 import com.whatiread.shared.exception.ResourceNotFoundException;
+import com.whatiread.shared.util.DisplayNames;
 import com.whatiread.social.api.BlockedUserDto;
 import com.whatiread.social.api.CreateFriendRequestRequest;
 import com.whatiread.social.api.FriendRequestDto;
@@ -34,6 +36,7 @@ public class FriendServiceImpl implements FriendService {
     private final BusinessMetrics businessMetrics;
     private final SimpMessagingTemplate messagingTemplate;
     private final CacheManager cacheManager;
+    private final NotificationService notificationService;
 
     public FriendServiceImpl(
             FriendRequestRepository friendRequestRepository,
@@ -42,7 +45,8 @@ public class FriendServiceImpl implements FriendService {
             BlockService blockService,
             BusinessMetrics businessMetrics,
             SimpMessagingTemplate messagingTemplate,
-            CacheManager cacheManager
+            CacheManager cacheManager,
+            NotificationService notificationService
     ) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
@@ -51,6 +55,7 @@ public class FriendServiceImpl implements FriendService {
         this.businessMetrics = businessMetrics;
         this.messagingTemplate = messagingTemplate;
         this.cacheManager = cacheManager;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -80,6 +85,12 @@ public class FriendServiceImpl implements FriendService {
                 .orElseGet(() -> new FriendRequest(requester, addressee, FriendRequestStatus.PENDING));
 
         FriendRequestDto saved = toRequestDto(friendRequestRepository.save(friendRequest));
+        notificationService.notifyFriendRequest(
+                addressee.getId(),
+                saved.id(),
+                requesterId,
+                DisplayNames.format(requester)
+        );
         messagingTemplate.convertAndSendToUser(
                 addressee.getId().toString(),
                 "/queue/friends",
@@ -159,6 +170,7 @@ public class FriendServiceImpl implements FriendService {
     @Transactional(readOnly = true)
     public List<FriendSummaryDto> listFriends(UUID userId) {
         return friendshipRepository.findByUser_Id(userId).stream()
+                .filter(friendship -> !blockService.isBlockedEitherWay(userId, friendship.getFriend().getId()))
                 .map(friendship -> toFriendSummary(friendship.getFriend(), friendship.getCreatedAt()))
                 .toList();
     }

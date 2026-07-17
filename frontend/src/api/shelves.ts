@@ -1,5 +1,6 @@
 import { apiFetch } from './client'
 import { API_PATHS, PUBLIC_API_PATHS } from './paths'
+import { getSecretShelfUnlockToken, SHELF_UNLOCK_HEADER } from '../lib/secretShelfUnlock'
 import type {
   ExploreShelf,
   Page,
@@ -11,9 +12,15 @@ import type {
   ShelfMember,
   ShelfShareLink,
   ShelfVisibility,
+  ShelfReadingOverlap,
   SystemShelf,
   UserBook,
 } from './types'
+
+function shelfUnlockHeaders(shelfId: string): HeadersInit | undefined {
+  const token = getSecretShelfUnlockToken(shelfId)
+  return token ? { [SHELF_UNLOCK_HEADER]: token } : undefined
+}
 
 export const shelvesApi = {
   listMine() {
@@ -43,6 +50,7 @@ export const shelvesApi = {
     visibility?: ShelfVisibility
     description?: string
     icon?: string
+    pin?: string
   }) {
     return apiFetch<Shelf>(API_PATHS.shelves.root, {
       method: 'POST',
@@ -57,6 +65,7 @@ export const shelvesApi = {
       visibility?: ShelfVisibility
       description?: string
       icon?: string
+      pin?: string
     },
   ) {
     return apiFetch<Shelf>(API_PATHS.shelves.byId(shelfId), {
@@ -112,20 +121,37 @@ export const shelvesApi = {
     })
   },
 
+  unlock(shelfId: string, pin: string) {
+    return apiFetch<{ unlockToken: string }>(API_PATHS.shelves.unlock(shelfId), {
+      method: 'POST',
+      body: JSON.stringify({ pin }),
+    })
+  },
+
   listBooks(shelfId: string) {
-    return apiFetch<ShelfBook[]>(API_PATHS.shelves.books(shelfId))
+    return apiFetch<ShelfBook[]>(API_PATHS.shelves.books(shelfId), {
+      headers: shelfUnlockHeaders(shelfId),
+    })
+  },
+
+  readingOverlap(shelfId: string) {
+    return apiFetch<ShelfReadingOverlap[]>(API_PATHS.shelves.readingOverlap(shelfId), {
+      headers: shelfUnlockHeaders(shelfId),
+    })
   },
 
   addBook(shelfId: string, body: { userBookId?: string; bookId?: string }) {
     return apiFetch<ShelfBook>(API_PATHS.shelves.books(shelfId), {
       method: 'POST',
       body: JSON.stringify(body),
+      headers: shelfUnlockHeaders(shelfId),
     })
   },
 
   removeBook(shelfId: string, userBookId: string) {
     return apiFetch<void>(API_PATHS.shelves.book(shelfId, userBookId), {
       method: 'DELETE',
+      headers: shelfUnlockHeaders(shelfId),
     })
   },
 
