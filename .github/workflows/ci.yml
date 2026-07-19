@@ -102,10 +102,15 @@ jobs:
           EOF
 
       - name: Start stack
-        run: docker compose up --build -d db meilisearch api web
+        run: |
+          COMPOSE="-f docker-compose.yml -f docker-compose.ci.yml"
+          docker compose $COMPOSE up --build -d db meilisearch api
+          chmod +x scripts/ci/wait-for-api.sh
+          COMPOSE_FILES="$COMPOSE" ./scripts/ci/wait-for-api.sh 420
+          docker compose $COMPOSE up -d web
 
       - name: Wait for stack
-        run: chmod +x scripts/ci/wait-for-stack.sh && BASE_URL="${{ env.CI_BASE_URL }}" ./scripts/ci/wait-for-stack.sh 360
+        run: chmod +x scripts/ci/wait-for-stack.sh && BASE_URL="${{ env.CI_BASE_URL }}" ./scripts/ci/wait-for-stack.sh 120
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -132,11 +137,12 @@ jobs:
       - name: Dump compose logs on failure
         if: failure()
         run: |
-          docker compose ps
-          docker compose logs db --tail 50
-          docker compose logs meilisearch --tail 50
-          docker compose logs api --tail 120
-          docker compose logs web --tail 50
+          COMPOSE="-f docker-compose.yml -f docker-compose.ci.yml"
+          docker compose $COMPOSE ps
+          docker compose $COMPOSE logs db --tail 50
+          docker compose $COMPOSE logs meilisearch --tail 50
+          docker compose $COMPOSE logs api --tail 200
+          docker compose $COMPOSE logs web --tail 50
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -158,7 +164,7 @@ jobs:
 
       - name: Stop stack
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
 
   docker:
     name: Docker build, push, and CVE scan
