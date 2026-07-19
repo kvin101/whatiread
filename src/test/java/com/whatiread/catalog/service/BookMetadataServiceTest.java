@@ -3,6 +3,7 @@ package com.whatiread.catalog.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -78,6 +79,77 @@ class BookMetadataServiceTest {
         assertEquals(688, result.pageCount());
         assertEquals(1965, result.publishYear());
         assertEquals("https://covers.openlibrary.org/b/id/9266751-M.jpg", result.coverUrl());
+    }
+
+    @Test
+    void applyOpenLibraryDocDoesNotReplaceExistingAuthors() {
+        Book book = new Book();
+        book.setAuthors(List.of("Existing Author"));
+        OpenLibraryDoc doc = new OpenLibraryDoc(
+                NEUROMANCER,
+                null,
+                List.of(WILLIAM_GIBSON),
+                null,
+                null,
+                null,
+                271,
+                1984,
+                WORK_KEY
+        );
+
+        bookMetadataService.applyOpenLibraryDoc(book, doc);
+
+        assertEquals(List.of("Existing Author"), book.getAuthors());
+    }
+
+    @Test
+    void getExternalPreviewThrowsForUnsupportedExternalId() {
+        assertThrows(IllegalArgumentException.class, () -> bookMetadataService.getExternalPreview("invalid-id"));
+    }
+
+    @Test
+    void getExternalPreviewReturnsNullWhenWorkPayloadMissing() {
+        when(openLibraryClient.getWork("OL123W")).thenReturn(Map.of());
+
+        assertNull(bookMetadataService.getExternalPreview("/works/OL123W"));
+    }
+
+    @Test
+    void getExternalPreviewNormalizesExternalIdWithoutLeadingSlash() {
+        when(openLibraryClient.getWork("OL123W"))
+                .thenReturn(Map.of("title", NEUROMANCER, "first_publish_date", "1984"));
+
+        BookPreviewDto preview = bookMetadataService.getExternalPreview("works/OL123W");
+
+        assertEquals(NEUROMANCER, preview.title());
+        assertEquals(1984, preview.publishYear());
+    }
+
+    @Test
+    void searchExternalUsesEmptyAuthorsWhenAuthorNameMissing() {
+        OpenLibraryDoc doc = new OpenLibraryDoc(
+                DUNE,
+                null,
+                null,
+                null,
+                null,
+                null,
+                688,
+                1965,
+                WORK_KEY
+        );
+        when(openLibraryClient.search(eq(DUNE_2), eq(10), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenReturn(new OpenLibrarySearchResponse(List.of(doc), 1));
+
+        List<BookSearchResultDto> results = bookMetadataService.searchExternal(DUNE_2, 0, 10);
+
+        assertEquals(1, results.size());
+        assertEquals(List.of(), results.getFirst().authors());
+    }
+
+    @Test
+    void extractIsbnReturnsNullForEmptyList() {
+        assertNull(BookMetadataService.extractIsbn(List.of()));
     }
 
     @Test

@@ -11,7 +11,7 @@ whatiread:
   cors:
     allowed-origins: ${CORS_ORIGINS:?CORS_ORIGINS is required in production (comma-separated origins, no wildcards)}
   rate-limit:
-    enabled: true
+    enabled: ${RATE_LIMIT_ENABLED:true}
   request-logging:
     enabled: false
   registration:
