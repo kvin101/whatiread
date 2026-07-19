@@ -16,6 +16,7 @@ public class BookMapper {
                 List.copyOf(book.getAuthors()),
                 book.getIsbn(),
                 book.getPageCount(),
+                book.getPublishYear(),
                 book.getCoverUrl(),
                 book.getDescription(),
                 book.getSource(),

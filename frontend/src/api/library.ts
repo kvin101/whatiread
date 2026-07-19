@@ -103,6 +103,7 @@ export const libraryApi = {
       rating?: number
       clearRating?: boolean
       progressPages?: number
+      progressPercent?: number
     },
   ) {
     return apiFetch<UserBook>(API_PATHS.library.byId(userBookId), {

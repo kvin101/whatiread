@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 019-book-publish-year
+      author: whatiread
+      changes:
+        - addColumn:
+            tableName: books
+            columns:
+              - column:
+                  name: publish_year
+                  type: int
+                  constraints:
+                    nullable: true

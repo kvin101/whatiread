@@ -24,8 +24,10 @@ export const booksApi = {
 
   createManual(body: {
     title: string
+    subtitle?: string
     authors: string[]
     pageCount?: number
+    publishYear?: number
     isbn?: string
     coverUrl?: string
     description?: string

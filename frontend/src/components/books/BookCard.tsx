@@ -15,6 +15,9 @@ export function BookCard({
   compact?: boolean
 }) {
   const { book, status, progressDisplay, progressPercent, rating } = entry
+  const pct =
+    progressPercent ??
+    (status === 'READ' ? 100 : null)
 
   return (
     <article
@@ -46,14 +49,16 @@ export function BookCard({
           <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>
           {rating != null && <span className="rating-pill">★ {rating}</span>}
         </div>
-        {progressDisplay && (
+        {(progressDisplay || pct != null) && (
           <div className="mt-3">
-            <p className="text-xs text-ink-muted mb-1">{progressDisplay}</p>
-            {progressPercent != null && (
+            <p className="text-xs text-ink-muted mb-1">
+              {progressDisplay ?? (pct != null ? `${pct}%` : '')}
+            </p>
+            {pct != null && (
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-accent to-sage transition-all duration-500"
-                  style={{ width: `${Math.min(100, progressPercent)}%` }}
+                  style={{ width: `${Math.min(100, pct)}%` }}
                 />
               </div>
             )}

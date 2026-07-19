@@ -94,6 +94,7 @@ export interface Book {
   authors: string[]
   isbn?: string
   pageCount?: number
+  publishYear?: number
   coverUrl?: string
   description?: string
   averageRating?: number
@@ -103,9 +104,11 @@ export interface Book {
 export interface BookSearchResult {
   id?: string
   title: string
+  subtitle?: string
   authors: string[]
   isbn?: string
   pageCount?: number
+  publishYear?: number
   coverUrl?: string
   externalId?: string
   source?: 'MANUAL' | 'OPEN_LIBRARY' | 'GOODREADS'
@@ -117,9 +120,9 @@ export interface BookPreview {
   authors: string[]
   isbn?: string
   pageCount?: number
+  publishYear?: number
   coverUrl?: string
   description?: string
-  publishYear?: number
   subjects?: string[]
   averageRating?: number
   ratingCount?: number

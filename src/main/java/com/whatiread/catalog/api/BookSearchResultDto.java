@@ -7,9 +7,11 @@ import java.util.UUID;
 public record BookSearchResultDto(
         UUID id,
         String title,
+        String subtitle,
         List<String> authors,
         String isbn,
         Integer pageCount,
+        Integer publishYear,
         String coverUrl,
         BookSource source,
         String externalId

@@ -1,9 +1,21 @@
 import { api } from './api'
 import type { AuthSession } from './auth'
+import {
+  ARJUN,
+  ARJUN_BOOK,
+  ARJUN_SHELF,
+  PRIYA,
+  PRIYA_BOOK,
+  PRIYA_SHELF,
+  RECOMMENDATION_MESSAGE,
+  TEST_PASSWORD,
+} from './personas'
 
 export type SeedContext = {
   auth: AuthSession
   userId: string
+  userDisplayName: string
+  userFirstName: string
   bookId: string
   bookTitle: string
   authorName: string
@@ -14,7 +26,12 @@ export type SeedContext = {
   shelfSlug: string
   friendId: string
   friendDisplayName: string
+  friendFirstName: string
   friendBookTitle: string
+  librarySearch: string
+  openLibraryQuery: string
+  readingProgressPages: number
+  bookPageCount: number
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -29,18 +46,14 @@ function asString(value: unknown, label: string): string {
 
 export async function seedTestUser(): Promise<SeedContext> {
   const ts = Date.now()
-  const bookTitle = `E2E Audit Book ${ts}`
-  const authorName = 'Jane Author'
-  const authorSlug = 'jane-author'
-  const shelfName = 'E2E Audit Shelf'
 
   const reg = await api('POST', '/auth/register', {
     body: {
-      email: `e2e-${ts}@test.com`,
-      username: `e2e${ts}`,
-      password: 'TestPass123!',
-      firstName: 'E2E',
-      lastName: 'User',
+      email: PRIYA.email(ts),
+      username: PRIYA.username(ts),
+      password: TEST_PASSWORD,
+      firstName: PRIYA.firstName,
+      lastName: PRIYA.lastName,
     },
   })
   if (reg.status !== 201 || !reg.json) throw new Error(`register failed: ${reg.status}`)
@@ -57,27 +70,39 @@ export async function seedTestUser(): Promise<SeedContext> {
 
   const book = await api('POST', '/books', {
     token,
-    body: { title: bookTitle, authors: [authorName], pageCount: 300 },
+    body: {
+      title: PRIYA_BOOK.title,
+      authors: [PRIYA_BOOK.author],
+      pageCount: PRIYA_BOOK.pageCount,
+    },
   })
   const bookId = asString(book.json?.id, 'book.id')
 
-  const authorCheck = await api('GET', `/authors/${authorSlug}`)
+  const authorCheck = await api('GET', `/authors/${PRIYA_BOOK.authorSlug}`)
   if (authorCheck.status !== 200) {
     throw new Error(
-      `Author "${authorName}" not linked after book create (GET /authors/${authorSlug} → ${authorCheck.status}). ` +
+      `Author "${PRIYA_BOOK.author}" not linked after book create (GET /authors/${PRIYA_BOOK.authorSlug} → ${authorCheck.status}). ` +
         'Redeploy API after BookServiceImpl author sync fix.',
     )
   }
 
   const entry = await api('POST', '/library', {
     token,
-    body: { bookId, status: 'READING', progressPages: 42 },
+    body: {
+      bookId,
+      status: 'READING',
+      progressPages: PRIYA_BOOK.progressPages,
+    },
   })
   const userBookId = asString(entry.json?.id, 'library entry id')
 
   const shelf = await api('POST', '/shelves', {
     token,
-    body: { name: shelfName, visibility: 'PUBLIC', description: 'Browser test shelf' },
+    body: {
+      name: PRIYA_SHELF.name,
+      visibility: 'PUBLIC',
+      description: PRIYA_SHELF.description,
+    },
   })
   const shelfId = asString(shelf.json?.id, 'shelf.id')
   const shelfSlug = asString(shelf.json?.slug, 'shelf.slug')
@@ -86,11 +111,11 @@ export async function seedTestUser(): Promise<SeedContext> {
 
   const friendReg = await api('POST', '/auth/register', {
     body: {
-      email: `e2e-friend-${ts}@test.com`,
-      username: `e2efriend${ts}`,
-      password: 'TestPass123!',
-      firstName: 'Friend',
-      lastName: 'User',
+      email: ARJUN.email(ts),
+      username: ARJUN.username(ts),
+      password: TEST_PASSWORD,
+      firstName: ARJUN.firstName,
+      lastName: ARJUN.lastName,
     },
   })
   const friendUser = asRecord(friendReg.json?.user)
@@ -101,10 +126,13 @@ export async function seedTestUser(): Promise<SeedContext> {
   const reqId = asString(req.json?.id, 'friend request id')
   await api('POST', `/friends/requests/${reqId}/accept`, { token: friendToken })
 
-  const friendBookTitle = 'Friend Book'
   const friendBook = await api('POST', '/books', {
     token: friendToken,
-    body: { title: friendBookTitle, authors: ['Friend Author'], pageCount: 200 },
+    body: {
+      title: ARJUN_BOOK.title,
+      authors: [ARJUN_BOOK.author],
+      pageCount: ARJUN_BOOK.pageCount,
+    },
   })
   const friendBookId = asString(friendBook.json?.id, 'friend book id')
   const fub = await api('POST', '/library', {
@@ -113,7 +141,7 @@ export async function seedTestUser(): Promise<SeedContext> {
   })
   const fShelf = await api('POST', '/shelves', {
     token: friendToken,
-    body: { name: 'Friend Public', visibility: 'PUBLIC' },
+    body: { name: ARJUN_SHELF.name, visibility: 'PUBLIC' },
   })
   await api('POST', `/shelves/${asString(fShelf.json?.id, 'friend shelf id')}/books`, {
     token: friendToken,
@@ -127,22 +155,33 @@ export async function seedTestUser(): Promise<SeedContext> {
 
   await api('POST', '/recommendations', {
     token: friendToken,
-    body: { toUserId: userId, bookId: friendBookId, message: 'Try this book from your friend!' },
+    body: {
+      toUserId: userId,
+      bookId: friendBookId,
+      message: RECOMMENDATION_MESSAGE,
+    },
   })
 
   return {
     auth,
     userId,
+    userDisplayName: PRIYA.displayName,
+    userFirstName: PRIYA.firstName,
     bookId,
-    bookTitle,
-    authorName,
-    authorSlug,
+    bookTitle: PRIYA_BOOK.title,
+    authorName: PRIYA_BOOK.author,
+    authorSlug: PRIYA_BOOK.authorSlug,
     userBookId,
     shelfId,
-    shelfName,
+    shelfName: PRIYA_SHELF.name,
     shelfSlug,
     friendId,
-    friendDisplayName: 'Friend User',
-    friendBookTitle,
+    friendDisplayName: ARJUN.displayName,
+    friendFirstName: ARJUN.firstName,
+    friendBookTitle: ARJUN_BOOK.title,
+    librarySearch: PRIYA_BOOK.librarySearch,
+    openLibraryQuery: PRIYA_BOOK.openLibraryQuery,
+    readingProgressPages: PRIYA_BOOK.progressPages,
+    bookPageCount: PRIYA_BOOK.pageCount,
   }
 }

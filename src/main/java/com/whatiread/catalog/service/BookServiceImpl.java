@@ -6,6 +6,7 @@ import com.whatiread.catalog.api.BookDto;
 import com.whatiread.catalog.api.BookSearchResultDto;
 import com.whatiread.catalog.api.CreateBookRequest;
 import com.whatiread.catalog.domain.Book;
+import com.whatiread.catalog.domain.BookSource;
 import com.whatiread.catalog.domain.BookWorkMatcher;
 import com.whatiread.catalog.integration.OpenLibraryClient;
 import com.whatiread.catalog.port.UserBookRatingProvider;
@@ -63,6 +64,7 @@ public class BookServiceImpl implements BookService {
                 book.getAuthors(),
                 book.getIsbn(),
                 book.getPageCount(),
+                book.getPublishYear(),
                 book.getCoverUrl(),
                 book.getDescription(),
                 book.getExternalId(),
@@ -107,13 +109,14 @@ public class BookServiceImpl implements BookService {
         return bookRepository.findByIsbn(isbn)
                 .map(bookMapper::toDto)
                 .orElseGet(() -> {
-                    var response = openLibraryClient.search("isbn:" + isbn, 1, 1);
+                    var response = openLibraryClient.search("isbn:" + isbn, 1, 1, OpenLibraryClient.SEARCH_FIELDS);
                     if (response.docs() == null || response.docs().isEmpty()) {
                         throw new ResourceNotFoundException("Book not found for ISBN " + isbn);
                     }
                     Book book = new Book();
                     bookMetadataService.applyOpenLibraryDoc(book, response.docs().getFirst());
                     book.setIsbn(isbn);
+                    bookMetadataService.enrichBookMetadata(book);
                     Book saved = bookRepository.save(book);
                     syncBookAuthors(saved);
                     return bookMapper.toDto(saved);
@@ -128,6 +131,7 @@ public class BookServiceImpl implements BookService {
                 authors,
                 isbn,
                 pageCount,
+                null,
                 null,
                 null,
                 null,
@@ -163,6 +167,7 @@ public class BookServiceImpl implements BookService {
         Book book = existing.isPresent()
                 ? enrichIfNeeded(existing.get(), request)
                 : createNewBook(request);
+        book = maybeEnrichOpenLibraryMetadata(book);
         syncBookAuthors(book);
         return bookMapper.toDto(book);
     }
@@ -196,6 +201,7 @@ public class BookServiceImpl implements BookService {
         book.setAuthors(request.authors());
         book.setIsbn(request.isbn());
         book.setPageCount(request.pageCount());
+        book.setPublishYear(request.publishYear());
         book.setCoverUrl(request.coverUrl());
         book.setDescription(request.description());
         book.setSource(request.source());
@@ -221,6 +227,14 @@ public class BookServiceImpl implements BookService {
             book.setCoverUrl(request.coverUrl());
             changed = true;
         }
+        if (!StringUtils.hasText(book.getSubtitle()) && StringUtils.hasText(request.subtitle())) {
+            book.setSubtitle(request.subtitle());
+            changed = true;
+        }
+        if (book.getPublishYear() == null && request.publishYear() != null) {
+            book.setPublishYear(request.publishYear());
+            changed = true;
+        }
         if (book.getPageCount() == null && request.pageCount() != null) {
             book.setPageCount(request.pageCount());
             changed = true;
@@ -230,6 +244,23 @@ public class BookServiceImpl implements BookService {
             changed = true;
         }
         return changed ? saveAndEvictCache(book) : book;
+    }
+
+    private Book maybeEnrichOpenLibraryMetadata(Book book) {
+        if (!needsOpenLibraryMetadata(book)) {
+            return book;
+        }
+        bookMetadataService.enrichBookMetadata(book);
+        return saveAndEvictCache(book);
+    }
+
+    private static boolean needsOpenLibraryMetadata(Book book) {
+        return book.getSource() == BookSource.OPEN_LIBRARY
+                && StringUtils.hasText(book.getExternalId())
+                && (book.getPageCount() == null
+                || !StringUtils.hasText(book.getDescription())
+                || book.getPublishYear() == null
+                || !StringUtils.hasText(book.getIsbn()));
     }
 
     private Book saveAndEvictCache(Book book) {
@@ -259,10 +290,11 @@ public class BookServiceImpl implements BookService {
     private BookSearchResultDto linkToCatalogIfExists(BookSearchResultDto result) {
         CreateBookRequest request = new CreateBookRequest(
                 result.title(),
-                null,
+                result.subtitle(),
                 result.authors(),
                 result.isbn(),
                 result.pageCount(),
+                result.publishYear(),
                 result.coverUrl(),
                 null,
                 result.externalId(),
@@ -272,10 +304,12 @@ public class BookServiceImpl implements BookService {
                 .map(book -> new BookSearchResultDto(
                         book.getId(),
                         book.getTitle(),
+                        book.getSubtitle() != null ? book.getSubtitle() : result.subtitle(),
                         List.copyOf(book.getAuthors()),
-                        book.getIsbn(),
-                        book.getPageCount(),
-                        book.getCoverUrl(),
+                        book.getIsbn() != null ? book.getIsbn() : result.isbn(),
+                        book.getPageCount() != null ? book.getPageCount() : result.pageCount(),
+                        book.getPublishYear() != null ? book.getPublishYear() : result.publishYear(),
+                        book.getCoverUrl() != null ? book.getCoverUrl() : result.coverUrl(),
                         book.getSource(),
                         book.getExternalId()
                 ))

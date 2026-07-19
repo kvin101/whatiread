@@ -1,6 +1,15 @@
 # Browser E2E tests (Playwright)
 
-Full **product demo** suite for GitHub screen recordings — meaningful test names, visible typing, every major button and flow.
+Full **product demo** suite for GitHub screen recordings — Indian personas, meaningful journey names, visible typing, every major button and flow.
+
+## Personas
+
+| Character | Role | Sample data |
+|-----------|------|-------------|
+| **Priya Sharma** | Primary reader | *The God of Small Things* (Arundhati Roy), shelf **Monsoon Reading List** |
+| **Arjun Mehta** | Friend | *The White Tiger* (Aravind Adiga), shelf **Hyderabad Picks**, sends a book recommendation |
+
+Fixtures live in `helpers/personas.ts`; seed data is created in `helpers/seed.ts`.
 
 ## Prerequisites
 
@@ -62,21 +71,21 @@ npx playwright show-report
 
 ## Product demo coverage (`e2e/product-demo.spec.ts`)
 
-**29 tests** in 12 chapters — run serially with shared seed data:
+**29 tests** in 12 chapters — serial run with Priya & Arjun seed data:
 
 | Chapter | What it exercises |
 |---------|-------------------|
-| **01 Authentication** | Login & register forms, links between them |
-| **02 Navigation** | Every sidebar link, profile → settings |
-| **03 Home** | Add book modal, reading goal, streak, activity link |
-| **04 Library** | All status filters, search, sort, book drawer (details/notes/comments/rating/progress) |
-| **05 Books & authors** | Post comment with timestamp, author profile tabs |
-| **06 Shelves** | Visibility filters, system shelves, create shelf, book club wizard, detail tabs (Books/Updates/Sharing), edit/add books/members, discussion |
+| **01 Welcome & account access** | Login & register forms, links between them |
+| **02 Priya tours the app** | Every sidebar link, profile → settings |
+| **03 Priya’s home dashboard** | Add book (Open Library search), reading goal, streak, activity |
+| **04 Priya’s library** | Status filters, search *God of Small*, sort, progress, drawer tabs |
+| **05 Book page & Arundhati Roy** | Comment on *The God of Small Things*, author profile tabs |
+| **06 Priya’s shelves** | Visibility filters, create **Chennai Weekend Reads**, book club wizard, **Monsoon Reading List** detail |
 | **07 Explore & Activity** | Source filters, sort, clone dialog, activity filters |
-| **08 Friends** | Search, message, sent requests, blocked list, friend profile |
-| **09 Messages** | New chat, send message |
-| **10 Recommendations** | Recommend modal, accept friend recommendation |
-| **11 Notifications & Settings** | Inbox, save profile bio |
+| **08 Priya & Arjun** | Friend search, message, sent requests, Arjun’s profile |
+| **09 Priya messages Arjun** | New chat, send message about *The White Tiger* |
+| **10 Book recommendations** | Recommend modal, accept Arjun’s recommendation |
+| **11 Notifications & settings** | Inbox, update writer bio |
 | **12 Sign out** | Logout → login page |
 
 ## Recording for GitHub
@@ -90,7 +99,8 @@ npx playwright show-report
 
 | File | Purpose |
 |------|---------|
-| `helpers/seed.ts` | Creates user, book, shelf, friend, incoming recommendation |
+| `helpers/personas.ts` | Priya Sharma, Arjun Mehta, Indian book & shelf fixtures |
+| `helpers/seed.ts` | Registers users, library entries, shelf, friendship, recommendation |
 | `helpers/navigation.ts` | Sidebar tour |
 | `helpers/pages.ts` | Book drawer, filter chips, modals |
 | `helpers/interactions.ts` | `visibleClick`, `visibleType` for recordings |

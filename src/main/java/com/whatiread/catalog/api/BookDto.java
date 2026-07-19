@@ -13,6 +13,7 @@ public record BookDto(
         List<String> authors,
         String isbn,
         Integer pageCount,
+        Integer publishYear,
         String coverUrl,
         String description,
         BookSource source,

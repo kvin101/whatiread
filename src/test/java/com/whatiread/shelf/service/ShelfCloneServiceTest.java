@@ -70,7 +70,7 @@ class ShelfCloneServiceTest {
 
     private static UserBookDto userBookDto(UUID userBookId, Book book) {
         BookDto bookDto = new BookDto(
-                book.getId(), book.getTitle(), null, book.getAuthors(), null, book.getPageCount(),
+                book.getId(), book.getTitle(), null, book.getAuthors(), null, book.getPageCount(), null,
                 null, null, BookSource.MANUAL, null, null, 0, null, null,
                 Instant.parse("2024-01-01T00:00:00Z"), Instant.parse("2024-01-01T00:00:00Z"));
         return new UserBookDto(

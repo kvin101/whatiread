@@ -1114,7 +1114,7 @@ class ShelfServiceImplTest {
 
     private UserBookDto userBookDto(UUID userBookId, Book book) {
         BookDto bookDto = new BookDto(
-                book.getId(), book.getTitle(), null, book.getAuthors(), null, book.getPageCount(),
+                book.getId(), book.getTitle(), null, book.getAuthors(), null, book.getPageCount(), null,
                 null, null, BookSource.MANUAL, null, null, 0, null, null,
                 Instant.parse(V_2024_01_01T00_00_00Z), Instant.parse(V_2024_01_02T00_00_00Z));
         return new UserBookDto(

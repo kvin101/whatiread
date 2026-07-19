@@ -33,8 +33,10 @@ export function BookSearchModal({
       if (!bookId) {
         const created = await booksApi.createManual({
           title: book.title,
+          subtitle: book.subtitle,
           authors: book.authors,
           pageCount: book.pageCount,
+          publishYear: book.publishYear,
           isbn: book.isbn,
           coverUrl: book.coverUrl,
           externalId: book.externalId,

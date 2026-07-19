@@ -96,12 +96,12 @@ export function LibraryFilterBar({
             aria-label="Search library"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-row flex-nowrap items-center gap-2">
           <Select
             id="shelfFilter"
             value={filters.shelfId}
             onChange={(e) => onChange({ shelfId: e.target.value })}
-            className="min-w-[140px]"
+            className="w-auto min-w-[140px]"
             aria-label="Filter by shelf"
           >
             <option value="ALL">All shelves</option>
@@ -115,7 +115,7 @@ export function LibraryFilterBar({
             id="sortFilter"
             value={filters.sort}
             onChange={(e) => onChange({ sort: e.target.value as LibrarySort })}
-            className="min-w-[140px]"
+            className="w-auto min-w-[140px]"
             aria-label="Sort order"
           >
             <option value="updated">Recently updated</option>

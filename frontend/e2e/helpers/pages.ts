@@ -16,12 +16,12 @@ export async function closeDrawer(page: Page) {
   await pauseForViewer(page)
 }
 
-export async function exerciseBookDrawerTabs(page: Page, bookTitle: string) {
+export async function exerciseBookDrawerTabs(page: Page, bookTitle: string, readerFirstName: string) {
   const drawer = await openBookDrawer(page, bookTitle)
 
   await visibleClick(drawer.getByRole('button', { name: 'notes' }))
   await pauseForViewer(page)
-  const note = `E2E note ${Date.now()}`
+  const note = `${readerFirstName} finished the Ayemenem chapters — ${Date.now()}`
   await visibleType(drawer.getByPlaceholder('Add a reading note…'), note)
   await visibleClick(drawer.getByRole('button', { name: /save note/i }))
   await expect(drawer.getByText(note)).toBeVisible({ timeout: 10_000 })

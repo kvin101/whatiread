@@ -12,6 +12,7 @@ public record CreateBookRequest(
         @NotEmpty List<@NotBlank @Size(max = 200) String> authors,
         @Size(min = 10, max = 20) String isbn,
         Integer pageCount,
+        Integer publishYear,
         @Size(max = 2048) String coverUrl,
         String description,
         @Size(max = 200) String externalId,

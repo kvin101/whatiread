@@ -39,3 +39,5 @@ databaseChangeLog:
       file: db/changelog/changes/017-secret-shelf-pin.yaml
   - include:
       file: db/changelog/changes/018-product-roadmap.yaml
+  - include:
+      file: db/changelog/changes/019-book-publish-year.yaml

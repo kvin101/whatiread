@@ -10,7 +10,6 @@
           <include>correlationId</include>
           <include>traceId</include>
           <include>spanId</include>
-          <noPrefix>true</noPrefix>
         </mdc>
       </message>
       <sortByTime>true</sortByTime>

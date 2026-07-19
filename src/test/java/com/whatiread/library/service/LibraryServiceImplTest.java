@@ -596,7 +596,7 @@ class LibraryServiceImplTest {
 
     private BookDto bookDto() {
         return new BookDto(
-                bookId, DUNE_2, null, List.of(FRANK_HERBERT), null, 688,
+                bookId, DUNE_2, null, List.of(FRANK_HERBERT), null, 688, null,
                 null, null, BookSource.OPEN_LIBRARY, null, null, 0, null, null,
                 Instant.now(), Instant.now());
     }

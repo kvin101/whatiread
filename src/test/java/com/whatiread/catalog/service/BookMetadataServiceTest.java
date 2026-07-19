@@ -1,8 +1,12 @@
 package com.whatiread.catalog.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +45,7 @@ class BookMetadataServiceTest {
     private static final String EMPTY = "empty";
     private static final String DUNE = "Dune";
     private static final String DUNE_2 = "dune";
+    private static final String WORK_KEY = "/works/OL82537W";
     @Mock
     private OpenLibraryClient openLibraryClient;
 
@@ -51,13 +56,16 @@ class BookMetadataServiceTest {
     void searchExternalMapsOpenLibraryResults() {
         OpenLibraryDoc doc = new OpenLibraryDoc(
                 DUNE,
+                null,
                 List.of(FRANK_HERBERT),
                 List.of("9780441172719", "0441172717"),
                 9266751L,
+                null,
                 688,
+                1965,
                 "/works/OL893479W"
         );
-        when(openLibraryClient.search(eq(DUNE_2), eq(10), eq(1)))
+        when(openLibraryClient.search(eq(DUNE_2), eq(10), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
                 .thenReturn(new OpenLibrarySearchResponse(List.of(doc), 1));
 
         List<BookSearchResultDto> results = bookMetadataService.searchExternal(DUNE_2, 0, 10);
@@ -68,7 +76,206 @@ class BookMetadataServiceTest {
         assertEquals(List.of(FRANK_HERBERT), result.authors());
         assertEquals("9780441172719", result.isbn());
         assertEquals(688, result.pageCount());
+        assertEquals(1965, result.publishYear());
         assertEquals("https://covers.openlibrary.org/b/id/9266751-M.jpg", result.coverUrl());
+    }
+
+    @Test
+    void applyOpenLibraryDocDoesNotOverwriteExistingMetadata() {
+        OpenLibraryDoc doc = new OpenLibraryDoc(
+                "New title",
+                "New subtitle",
+                List.of("Other Author"),
+                List.of("9780000000000"),
+                1L,
+                "OL999M",
+                100,
+                2020,
+                WORK_KEY
+        );
+        Book book = new Book();
+        book.setTitle("Keep title");
+        book.setPageCount(340);
+        book.setPublishYear(1998);
+        book.setIsbn("9780439064866");
+        book.setDescription("Keep description");
+
+        bookMetadataService.applyOpenLibraryDoc(book, doc);
+
+        assertEquals("Keep title", book.getTitle());
+        assertEquals(340, book.getPageCount());
+        assertEquals(1998, book.getPublishYear());
+        assertEquals("9780439064866", book.getIsbn());
+        assertEquals("Keep description", book.getDescription());
+        assertEquals(BookSource.OPEN_LIBRARY, book.getSource());
+        assertEquals(WORK_KEY, book.getExternalId());
+    }
+
+    @Test
+    void enrichBookMetadataMergesSearchWorkAndEditionDetails() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+        book.setExternalId(WORK_KEY);
+
+        OpenLibraryDoc searchDoc = new OpenLibraryDoc(
+                "Harry Potter and the Chamber of Secrets",
+                null,
+                List.of("J. K. Rowling"),
+                List.of("9780439064866"),
+                15158664L,
+                "OL59041259M",
+                339,
+                1998,
+                WORK_KEY
+        );
+        when(openLibraryClient.search(eq("key:" + WORK_KEY), eq(1), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenReturn(new OpenLibrarySearchResponse(List.of(searchDoc), 1));
+        when(openLibraryClient.getWork("OL82537W"))
+                .thenReturn(Map.of(
+                        "description", Map.of("value", "A wizard school story."),
+                        "first_publish_date", "1998",
+                        "subtitle", "Book 2"
+                ));
+        when(openLibraryClient.getEdition("OL59041259M"))
+                .thenReturn(Map.of(
+                        "number_of_pages", 258,
+                        "isbn_13", List.of("9780439064866"),
+                        "covers", List.of(15158664)
+                ));
+
+        assertTrue(bookMetadataService.enrichBookMetadata(book));
+
+        assertEquals(258, book.getPageCount());
+        assertEquals(1998, book.getPublishYear());
+        assertEquals("A wizard school story.", book.getDescription());
+        assertEquals("9780439064866", book.getIsbn());
+        assertEquals("Book 2", book.getSubtitle());
+        assertEquals("https://covers.openlibrary.org/b/id/15158664-M.jpg", book.getCoverUrl());
+    }
+
+    @Test
+    void enrichBookMetadataReturnsFalseForNonOpenLibraryBooks() {
+        Book book = new Book();
+        book.setSource(BookSource.MANUAL);
+        book.setExternalId(WORK_KEY);
+
+        assertFalse(bookMetadataService.enrichBookMetadata(book));
+    }
+
+    @Test
+    void enrichBookMetadataToleratesOpenLibraryFailures() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+        book.setExternalId(WORK_KEY);
+        when(openLibraryClient.search(eq("key:" + WORK_KEY), eq(1), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenThrow(new RuntimeException("Open Library unavailable"));
+
+        assertFalse(bookMetadataService.enrichBookMetadata(book));
+    }
+
+    @Test
+    void getExternalPreviewMapsEditionDetails() {
+        when(openLibraryClient.getEdition("OL59041259M"))
+                .thenReturn(Map.of(
+                        "title", "Chamber of Secrets",
+                        "number_of_pages", 258,
+                        "isbn_13", List.of("9780439064866"),
+                        "covers", List.of(15158664L),
+                        "description", "Edition blurb.",
+                        "publish_date", "1999",
+                        "subjects", List.of("Fantasy")
+                ));
+
+        BookPreviewDto preview = bookMetadataService.getExternalPreview("/books/OL59041259M");
+
+        assertEquals("Chamber of Secrets", preview.title());
+        assertEquals(258, preview.pageCount());
+        assertEquals("9780439064866", preview.isbn());
+        assertEquals("Edition blurb.", preview.description());
+        assertEquals(1999, preview.publishYear());
+        assertEquals(List.of("Fantasy"), preview.subjects());
+    }
+
+    @Test
+    void enrichBookMetadataReturnsFalseWithoutExternalId() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+
+        assertFalse(bookMetadataService.enrichBookMetadata(book));
+    }
+
+    @Test
+    void enrichBookMetadataSkipsEditionLookupWithoutCoverEditionKey() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+        book.setExternalId(WORK_KEY);
+
+        OpenLibraryDoc searchDoc = new OpenLibraryDoc(
+                "Harry Potter and the Chamber of Secrets",
+                null,
+                List.of("J. K. Rowling"),
+                null,
+                null,
+                null,
+                339,
+                1998,
+                WORK_KEY
+        );
+        when(openLibraryClient.search(eq("key:" + WORK_KEY), eq(1), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenReturn(new OpenLibrarySearchResponse(List.of(searchDoc), 1));
+        when(openLibraryClient.getWork("OL82537W"))
+                .thenReturn(Map.of("description", "Work metadata only."));
+
+        bookMetadataService.enrichBookMetadata(book);
+
+        verify(openLibraryClient, never()).getEdition(org.mockito.ArgumentMatchers.anyString());
+        assertEquals("Work metadata only.", book.getDescription());
+    }
+
+    @Test
+    void enrichBookMetadataFallsBackToWorkWhenSearchHasNoDocs() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+        book.setExternalId(WORK_KEY);
+
+        when(openLibraryClient.search(eq("key:" + WORK_KEY), eq(1), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenReturn(new OpenLibrarySearchResponse(List.of(), 0));
+        when(openLibraryClient.getWork("OL82537W"))
+                .thenReturn(Map.of(
+                        "description", "From work metadata only.",
+                        "first_publish_date", "1998"
+                ));
+
+        assertTrue(bookMetadataService.enrichBookMetadata(book));
+        assertEquals("From work metadata only.", book.getDescription());
+        assertEquals(1998, book.getPublishYear());
+    }
+
+    @Test
+    void enrichBookMetadataSkipsWorkLookupForEditionExternalIds() {
+        Book book = new Book();
+        book.setSource(BookSource.OPEN_LIBRARY);
+        book.setExternalId("/books/OL59041259M");
+
+        when(openLibraryClient.search(eq("key:/books/OL59041259M"), eq(1), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
+                .thenReturn(new OpenLibrarySearchResponse(List.of(), 0));
+
+        bookMetadataService.enrichBookMetadata(book);
+
+        verify(openLibraryClient, never()).getWork(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void getExternalPreviewEditionUsesIsbn10WhenIsbn13Missing() {
+        when(openLibraryClient.getEdition("OL59041259M"))
+                .thenReturn(Map.of(
+                        "title", "Chamber of Secrets",
+                        "isbn_10", List.of("0439064864")
+                ));
+
+        BookPreviewDto preview = bookMetadataService.getExternalPreview("/books/OL59041259M");
+
+        assertEquals("0439064864", preview.isbn());
     }
 
     @Test
@@ -88,7 +295,7 @@ class BookMetadataServiceTest {
 
     @Test
     void searchExternalReturnsEmptyWhenDocsMissing() {
-        when(openLibraryClient.search(eq(EMPTY), eq(10), eq(1)))
+        when(openLibraryClient.search(eq(EMPTY), eq(10), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
                 .thenReturn(new OpenLibrarySearchResponse(null, 0));
 
         assertEquals(0, bookMetadataService.searchExternal(EMPTY, 0, 10).size());
@@ -98,10 +305,13 @@ class BookMetadataServiceTest {
     void applyOpenLibraryDocPopulatesBookFields() {
         OpenLibraryDoc doc = new OpenLibraryDoc(
                 NEUROMANCER,
+                null,
                 List.of(WILLIAM_GIBSON),
                 List.of("9780441569595"),
                 12345L,
+                null,
                 271,
+                null,
                 "/works/OL123W"
         );
         Book book = new Book();
@@ -172,19 +382,22 @@ class BookMetadataServiceTest {
         void cachesResultsByQueryPageAndSize() {
             OpenLibraryDoc doc = new OpenLibraryDoc(
                     DUNE,
+                    null,
                     List.of(FRANK_HERBERT),
                     List.of("9780441172719"),
                     9266751L,
+                    null,
                     688,
+                    1965,
                     "/works/OL893479W"
             );
-            when(openLibraryClient.search(eq(DUNE_2), eq(10), eq(1)))
+            when(openLibraryClient.search(eq(DUNE_2), eq(10), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS)))
                     .thenReturn(new OpenLibrarySearchResponse(List.of(doc), 1));
 
             assertEquals(1, bookMetadataService.searchExternal(DUNE_2, 0, 10).size());
             assertEquals(1, bookMetadataService.searchExternal(DUNE_2, 0, 10).size());
 
-            verify(openLibraryClient, times(1)).search(eq(DUNE_2), eq(10), eq(1));
+            verify(openLibraryClient, times(1)).search(eq(DUNE_2), eq(10), eq(1), eq(OpenLibraryClient.SEARCH_FIELDS));
         }
     }
 }

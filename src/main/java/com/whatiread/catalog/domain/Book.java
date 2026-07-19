@@ -33,6 +33,9 @@ public class Book extends AuditActorEntity {
     @Column(name = "page_count")
     private Integer pageCount;
 
+    @Column(name = "publish_year")
+    private Integer publishYear;
+
     @Column(name = "cover_url", length = 2048)
     private String coverUrl;
 
@@ -97,6 +100,14 @@ public class Book extends AuditActorEntity {
 
     public void setPageCount(Integer pageCount) {
         this.pageCount = pageCount;
+    }
+
+    public Integer getPublishYear() {
+        return publishYear;
+    }
+
+    public void setPublishYear(Integer publishYear) {
+        this.publishYear = publishYear;
     }
 
     public String getCoverUrl() {

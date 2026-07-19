@@ -50,6 +50,9 @@ export function BookPage() {
             {book.pageCount != null && (
               <p className="mt-1 text-sm text-ink-muted">{book.pageCount} pages</p>
             )}
+            {book.publishYear != null && (
+              <p className="mt-1 text-sm text-ink-muted">Published {book.publishYear}</p>
+            )}
             {book.averageRating != null && (book.ratingCount ?? 0) > 0 && (
               <p className="mt-2 text-sm text-ink-muted">
                 Community ★ {book.averageRating} · {book.ratingCount} ratings

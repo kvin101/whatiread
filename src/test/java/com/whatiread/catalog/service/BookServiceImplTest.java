@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -107,6 +108,68 @@ class BookServiceImplTest {
     }
 
     @Test
+    void searchPrefersCatalogSubtitleAndPublishYearWhenLinked() {
+        book.setSubtitle("A Dystopian Novel");
+        book.setPublishYear(1949);
+        BookSearchResultDto external = new BookSearchResultDto(
+                null, "1984", "External subtitle", List.of(GEORGE_ORWELL), "9780141036144",
+                328, 1950, null, BookSource.MANUAL, null);
+        when(bookMetadataService.searchExternal("orwell", 0, 10)).thenReturn(List.of(external));
+        when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.of(book));
+
+        BookSearchResultDto linked = (BookSearchResultDto) bookService.search("orwell", PageRequest.of(0, 10))
+                .getContent()
+                .getFirst();
+
+        assertThat(linked.subtitle()).isEqualTo("A Dystopian Novel");
+        assertThat(linked.publishYear()).isEqualTo(1949);
+    }
+
+    @Test
+    void searchUsesExternalMetadataWhenCatalogValuesMissing() {
+        BookSearchResultDto external = new BookSearchResultDto(
+                null, "1984", "External subtitle", List.of(GEORGE_ORWELL), "9780141036144",
+                328, 1950, "http://cover", BookSource.OPEN_LIBRARY, "ol-1");
+        when(bookMetadataService.searchExternal("orwell", 0, 10)).thenReturn(List.of(external));
+        when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.of(book));
+
+        BookSearchResultDto linked = (BookSearchResultDto) bookService.search("orwell", PageRequest.of(0, 10))
+                .getContent()
+                .getFirst();
+
+        assertThat(linked.subtitle()).isEqualTo("External subtitle");
+        assertThat(linked.publishYear()).isEqualTo(1950);
+    }
+
+    @Test
+    void createManualSkipsEnrichmentWhenOpenLibraryMetadataComplete() throws Exception {
+        CreateBookRequest request = new CreateBookRequest(
+                "Complete Book",
+                null,
+                List.of("Author"),
+                "9780000000000",
+                200,
+                1999,
+                "http://cover",
+                "Full description",
+                "/works/OL1",
+                BookSource.OPEN_LIBRARY);
+        when(bookRepository.findByIsbn("9780000000000")).thenReturn(Optional.empty());
+        when(bookRepository.findBySourceAndExternalId(BookSource.OPEN_LIBRARY, "/works/OL1"))
+                .thenReturn(Optional.empty());
+        when(bookRepository.findByNormalizedTitle("Complete Book")).thenReturn(List.of());
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> {
+            Book saved = invocation.getArgument(0);
+            setId(saved, bookId);
+            return saved;
+        });
+
+        bookService.createManual(request);
+
+        verify(bookMetadataService, never()).enrichBookMetadata(any(Book.class));
+    }
+
+    @Test
     void findOrCreateByIsbnReturnsExistingBook() {
         when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.of(book));
 
@@ -120,14 +183,17 @@ class BookServiceImplTest {
     void findOrCreateByIsbnFetchesFromOpenLibraryWhenMissing() {
         OpenLibraryDoc doc = new OpenLibraryDoc(
                 "1984",
+                null,
                 List.of(GEORGE_ORWELL),
                 List.of("9780141036144"),
                 1L,
+                null,
                 328,
+                null,
                 "/works/OL123W"
         );
         when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.empty());
-        when(openLibraryClient.search("isbn:9780141036144", 1, 1))
+        when(openLibraryClient.search("isbn:9780141036144", 1, 1, OpenLibraryClient.SEARCH_FIELDS))
                 .thenReturn(new OpenLibrarySearchResponse(List.of(doc), 1));
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> {
             Book saved = invocation.getArgument(0);
@@ -139,12 +205,13 @@ class BookServiceImplTest {
 
         assertThat(dto.id()).isEqualTo(bookId);
         verify(bookMetadataService).applyOpenLibraryDoc(any(Book.class), eq(doc));
+        verify(bookMetadataService).enrichBookMetadata(any(Book.class));
     }
 
     @Test
     void findOrCreateByIsbnThrowsWhenOpenLibraryHasNoMatch() {
         when(bookRepository.findByIsbn("0000000000000")).thenReturn(Optional.empty());
-        when(openLibraryClient.search("isbn:0000000000000", 1, 1))
+        when(openLibraryClient.search("isbn:0000000000000", 1, 1, OpenLibraryClient.SEARCH_FIELDS))
                 .thenReturn(new OpenLibrarySearchResponse(List.of(), 0));
 
         assertThatThrownBy(() -> bookService.findOrCreateByIsbn("0000000000000"))
@@ -164,7 +231,7 @@ class BookServiceImplTest {
     @Test
     void searchLinksExternalResultsToCatalog() {
         BookSearchResultDto external = new BookSearchResultDto(
-                null, "Dune", List.of("Frank Herbert"), "9780441172719", 688,
+                null, "Dune", null, List.of("Frank Herbert"), "9780441172719", 688, 1965,
                 null, BookSource.OPEN_LIBRARY, "ol-1");
         when(bookMetadataService.searchExternal(DUNE, 0, 10)).thenReturn(List.of(external));
         when(bookRepository.findByIsbn("9780441172719")).thenReturn(Optional.of(book));
@@ -192,7 +259,7 @@ class BookServiceImplTest {
     void createManualReusesExistingIsbnMatch() {
         CreateBookRequest request = new CreateBookRequest(
                 "1984", null, List.of(GEORGE_ORWELL), "9780141036144",
-                328, null, null, null, null);
+                328, null, null, null, null, null);
         when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.of(book));
 
         BookDto dto = bookService.createManual(request);
@@ -235,7 +302,7 @@ class BookServiceImplTest {
     void createManualCreatesNewBookWhenMissing() {
         CreateBookRequest request = new CreateBookRequest(
                 NEW_TITLE, null, List.of("Author"), null,
-                200, null, "A story", "ext-1", BookSource.MANUAL);
+                200, null, null, "A story", "ext-1", BookSource.MANUAL);
         when(bookRepository.findByNormalizedTitle(NEW_TITLE)).thenReturn(List.of());
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> {
             Book saved = invocation.getArgument(0);
@@ -259,7 +326,7 @@ class BookServiceImplTest {
     @Test
     void searchReturnsUnlinkedExternalResults() {
         BookSearchResultDto external = new BookSearchResultDto(
-                null, UNKNOWN, List.of("Author"), null, 100,
+                null, UNKNOWN, null, List.of("Author"), null, 100, null,
                 null, BookSource.OPEN_LIBRARY, "ol-unknown");
         when(bookMetadataService.searchExternal(UNKNOWN_2, 0, 10)).thenReturn(List.of(external));
         when(bookRepository.findByNormalizedTitle(UNKNOWN)).thenReturn(List.of());
@@ -271,12 +338,39 @@ class BookServiceImplTest {
     }
 
     @Test
+    void createManualEnrichesIncompleteOpenLibraryBook() {
+        CreateBookRequest request = new CreateBookRequest(
+                "Harry Potter and the Chamber of Secrets",
+                null,
+                List.of("J. K. Rowling"),
+                null,
+                null,
+                null,
+                "https://covers.openlibrary.org/b/id/15158664-M.jpg",
+                null,
+                "/works/OL82537W",
+                BookSource.OPEN_LIBRARY);
+        when(bookRepository.findBySourceAndExternalId(BookSource.OPEN_LIBRARY, "/works/OL82537W"))
+                .thenReturn(Optional.empty());
+        when(bookRepository.findByNormalizedTitle(request.title())).thenReturn(List.of());
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> {
+            Book saved = invocation.getArgument(0);
+            setId(saved, bookId);
+            return saved;
+        });
+
+        bookService.createManual(request);
+
+        verify(bookMetadataService).enrichBookMetadata(any(Book.class));
+    }
+
+    @Test
     void createManualEnrichesExistingBookMetadata() {
         book.setIsbn(null);
         book.setPageCount(null);
         CreateBookRequest request = new CreateBookRequest(
                 "1984", null, List.of(GEORGE_ORWELL), "9780141036144",
-                328, "http://cover", "desc", null, BookSource.MANUAL);
+                328, null, "http://cover", "desc", null, BookSource.MANUAL);
         when(bookRepository.findByIsbn("9780141036144")).thenReturn(Optional.of(book));
         Cache cache = org.mockito.Mockito.mock(Cache.class);
         when(cacheManager.getCache(CacheConfig.BOOK_BY_ID)).thenReturn(cache);

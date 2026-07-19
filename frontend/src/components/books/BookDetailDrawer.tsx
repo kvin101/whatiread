@@ -43,6 +43,7 @@ export function BookDetailDrawer({
   const queryClient = useQueryClient()
   const { confirm, dialog } = useConfirm()
   const [progressPages, setProgressPages] = useState('')
+  const [progressPercent, setProgressPercent] = useState('')
   const [noteBody, setNoteBody] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<DrawerTab>('details')
@@ -81,7 +82,12 @@ export function BookDetailDrawer({
     } else {
       setProgressPages('')
     }
-  }, [displayEntry?.progressPages, activeUserBookId])
+    if (displayEntry?.progressPercent != null) {
+      setProgressPercent(String(displayEntry.progressPercent))
+    } else {
+      setProgressPercent('')
+    }
+  }, [displayEntry?.progressPages, displayEntry?.progressPercent, activeUserBookId])
 
   useEffect(() => {
     if (!open) {
@@ -166,12 +172,35 @@ export function BookDetailDrawer({
     },
   })
 
+  const effectivePageCount = (e: UserBook | undefined) =>
+    e?.pageCount ?? e?.book.pageCount ?? null
+
   const previewProgress = (e: UserBook | undefined) => {
-    if (!e?.book.pageCount) return null
-    const pages = parseInt(progressPages, 10)
-    if (Number.isNaN(pages) || pages < 0) return null
-    const pct = Math.min(100, Math.round((pages / e.book.pageCount) * 100))
-    return `${pages} / ${e.book.pageCount} pages (${pct}%)`
+    const total = effectivePageCount(e)
+    if (total) {
+      const pages = parseInt(progressPages, 10)
+      if (Number.isNaN(pages) || pages < 0) return e?.progressDisplay ?? null
+      const pct = Math.min(100, Math.round((pages / total) * 100))
+      return `${pages} / ${total} pages (${pct}%)`
+    }
+    const pct = parseInt(progressPercent, 10)
+    if (!Number.isNaN(pct) && pct >= 0) return `${pct}%`
+    return e?.progressDisplay ?? null
+  }
+
+  const displayProgressPercent = (e: UserBook | undefined) => {
+    if (!e) return null
+    if (e.status === 'READ') return 100
+    const total = effectivePageCount(e)
+    if (total) {
+      const pages = parseInt(progressPages, 10)
+      if (!Number.isNaN(pages) && pages >= 0) {
+        return Math.min(100, Math.round((pages / total) * 100))
+      }
+    }
+    const pct = parseInt(progressPercent, 10)
+    if (!Number.isNaN(pct) && pct >= 0) return Math.min(100, pct)
+    return e.progressPercent ?? null
   }
 
   const loading =
@@ -215,8 +244,8 @@ export function BookDetailDrawer({
               <p className="text-sm text-ink-muted panel-text mt-1">
                 <AuthorLink names={displayEntry.book.authors} />
               </p>
-              {displayEntry.book.pageCount && (
-                <p className="mt-1 text-sm text-ink-muted">{displayEntry.book.pageCount} pages</p>
+              {effectivePageCount(displayEntry) && (
+                <p className="mt-1 text-sm text-ink-muted">{effectivePageCount(displayEntry)} pages</p>
               )}
               {displayEntry.book.averageRating != null && (displayEntry.book.ratingCount ?? 0) > 0 && (
                 <span className="rating-pill mt-2 inline-flex">
@@ -312,11 +341,80 @@ export function BookDetailDrawer({
                 <Button
                   size="sm"
                   disabled={updateMutation.isPending}
-                  onClick={() => updateMutation.mutate({ status: 'READ', progressPages: fetchedEntry.book.pageCount ?? undefined })}
+                  onClick={() =>
+                    updateMutation.mutate({
+                      status: 'READ',
+                      progressPages: effectivePageCount(fetchedEntry) ?? undefined,
+                    })
+                  }
                 >
                   Mark finished
                 </Button>
               )}
+
+              <section>
+                <Label>Reading progress</Label>
+                {displayProgressPercent(fetchedEntry) != null && (
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-accent to-sage transition-all duration-500"
+                      style={{ width: `${displayProgressPercent(fetchedEntry)}%` }}
+                    />
+                  </div>
+                )}
+                {effectivePageCount(fetchedEntry) ? (
+                  <>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={effectivePageCount(fetchedEntry)!}
+                      value={progressPages}
+                      onChange={(e) => setProgressPages(e.target.value)}
+                      onBlur={() => {
+                        const n = parseInt(progressPages, 10)
+                        if (!Number.isNaN(n)) {
+                          updateMutation.mutate({
+                            status: fetchedEntry.status === 'TO_READ' ? 'READING' : fetchedEntry.status,
+                            progressPages: n,
+                          })
+                        }
+                      }}
+                      className="mt-2"
+                      aria-label="Pages read"
+                    />
+                    <p className="mt-2 text-sm text-sage font-medium">
+                      {previewProgress(fetchedEntry) ?? 'Enter pages to track progress'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={progressPercent}
+                      onChange={(e) => setProgressPercent(e.target.value)}
+                      onBlur={() => {
+                        const n = parseInt(progressPercent, 10)
+                        if (!Number.isNaN(n)) {
+                          updateMutation.mutate({
+                            status: fetchedEntry.status === 'TO_READ' ? 'READING' : fetchedEntry.status,
+                            progressPercent: Math.min(100, Math.max(0, n)),
+                          })
+                        }
+                      }}
+                      className="mt-2"
+                      aria-label="Reading progress percent"
+                    />
+                    <p className="mt-2 text-sm text-sage font-medium">
+                      {previewProgress(fetchedEntry) ?? 'Enter percent complete (0–100)'}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Page count unknown for this book — track progress by percent.
+                    </p>
+                  </>
+                )}
+              </section>
 
               <section>
                 <Label>Your rating</Label>
@@ -328,33 +426,6 @@ export function BookDetailDrawer({
                   />
                 </div>
               </section>
-
-              {fetchedEntry.book.pageCount && (
-                <section>
-                  <Label>Pages read</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={fetchedEntry.book.pageCount}
-                    value={progressPages}
-                    onChange={(e) => setProgressPages(e.target.value)}
-                    onBlur={() => {
-                      const n = parseInt(progressPages, 10)
-                      if (!Number.isNaN(n)) {
-                        updateMutation.mutate({
-                          status: fetchedEntry.status === 'TO_READ' ? 'READING' : fetchedEntry.status,
-                          progressPages: n,
-                        })
-                      }
-                    }}
-                  />
-                  <p className="mt-2 text-sm text-sage font-medium">
-                    {previewProgress(fetchedEntry) ??
-                      fetchedEntry.progressDisplay ??
-                      'Enter pages to see progress'}
-                  </p>
-                </section>
-              )}
 
               <Button
                 variant="danger"

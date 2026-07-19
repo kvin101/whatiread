@@ -107,7 +107,7 @@ class RecommendationServiceImplTest {
 
     private static BookDto bookDto() {
         return new BookDto(
-                UUID.randomUUID(), DUNE, null, List.of("Frank Herbert"), null, 688,
+                UUID.randomUUID(), DUNE, null, List.of("Frank Herbert"), null, 688, null,
                 null, null, BookSource.OPEN_LIBRARY, null, null, 0, null, null,
                 Instant.now(), Instant.now());
     }
