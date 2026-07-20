@@ -3,7 +3,11 @@ WhatIRead
 
 Self-hosted reading tracker. Track books, organize shelves, connect with friends.
 
-**License:** [AGPL-3.0](./LICENSE)
+**License:** [AGPL-3.0](./LICENSE) + [NON-AI-LICENSE](./licenses/NON-AI-LICENSE) ([process](./licenses/README.md))
+
+- **Copyleft (AGPL-3.0):** Run, modify, or offer this software over a network → share corresponding source under AGPL-3.0.
+- **No AI/ML training:** [NON-AI-LICENSE](./licenses/NON-AI-LICENSE) (from [non-ai-licenses](https://github.com/non-ai-licenses/non-ai-licenses)) — copy the license **into your repo**; do not link from GitHub at runtime.
+- **Crawlers:** [robots.txt](./frontend/public/robots.txt) from [ai.robots.txt](https://github.com/ai-robots-txt/ai.robots.txt) + nginx hard block.
 
 ## Run locally (no Docker)
 
@@ -26,6 +30,13 @@ docker compose up --build -d
 Open http://localhost (or `HTTP_PORT` from `.env`).
 
 Pull pre-built images instead of building — set `API_IMAGE` and `WEB_IMAGE` in `.env`.
+
+| Registry | API | Web |
+|----------|-----|-----|
+| Docker Hub | `vinayk101/whatiread-api:latest` | `vinayk101/whatiread-web:latest` |
+| GitHub Packages | `ghcr.io/kvin101/whatiread-api:latest` | `ghcr.io/kvin101/whatiread-web:latest` |
+
+Releases and image digests for each build: [GitHub Releases](https://github.com/kvin101/whatiread/releases).
 
 ### Observability
 

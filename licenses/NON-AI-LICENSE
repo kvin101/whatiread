@@ -1,0 +1,42 @@
+NON-AI Additional Terms for WhatIRead
+=====================================
+
+Copyright (c) 2026 WhatIRead Contributors
+
+This file is **not** a standalone license. WhatIRead is licensed under the GNU
+Affero General Public License v3.0 ([LICENSE](../LICENSE)). The restrictions
+below are **additional conditions** on the copyright grant, adapted from the
+MIT NON-AI License template maintained by the non-ai-licenses project:
+
+  https://github.com/non-ai-licenses/non-ai-licenses
+  Template: NON-AI-MIT
+  https://raw.githubusercontent.com/non-ai-licenses/non-ai-licenses/main/NON-AI-MIT
+
+If you use, copy, modify, or distribute this software, you must comply with
+AGPL-3.0 **and** the following restrictions.
+
+---
+
+In addition to the terms of AGPL-3.0, the following restrictions apply to the
+Software (source code, object code, documentation, and derivative works):
+
+1. The Software and any modifications made to it may not be used for the purpose
+   of training or improving machine learning algorithms, including but not limited
+   to artificial intelligence, natural language processing, or data mining. This
+   condition applies to any derivatives, modifications, or updates based on the
+   Software code. Any usage of the Software in an AI-training dataset is
+   considered a breach of these terms.
+
+2. The Software may not be included in any dataset used for training or improving
+   machine learning algorithms, including but not limited to artificial
+   intelligence, natural language processing, or data mining.
+
+3. Any person or organization found to be in violation of these restrictions will
+   be subject to legal action and may be held liable for any damages resulting
+   from such use.
+
+Violation of these restrictions terminates your rights under the copyright
+license. For permissions not granted here, contact the maintainer via
+https://github.com/kvin101/whatiread
+
+See also [ADDITIONAL-TERMS.md](../ADDITIONAL-TERMS.md) and [licenses/README.md](./README.md).

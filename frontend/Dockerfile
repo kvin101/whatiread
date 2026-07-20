@@ -15,6 +15,7 @@ RUN apk add --no-cache wget \
     && mkdir -p /var/cache/nginx /var/log/nginx /tmp/nginx \
     && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /tmp/nginx /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx-block-ai-bots.conf /etc/nginx/conf.d/block-ai-bots.conf
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080

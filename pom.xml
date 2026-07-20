@@ -17,9 +17,10 @@
   <url>https://github.com/whatiread/whatiread</url>
   <licenses>
     <license>
-      <name>GNU Affero General Public License v3.0</name>
-      <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+      <name>GNU Affero General Public License v3.0 with Additional Terms</name>
+      <url>https://github.com/kvin101/whatiread/blob/main/licenses/NON-AI-LICENSE</url>
       <distribution>repo</distribution>
+      <comments>AGPL-3.0 (LICENSE) plus licenses/NON-AI-LICENSE from non-ai-licenses project.</comments>
     </license>
   </licenses>
   <developers>
