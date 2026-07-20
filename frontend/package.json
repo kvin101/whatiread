@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:e2e:record": "RECORD_DEMO_VIDEOS=1 playwright test",
     "test:e2e:headed": "E2E_VISIBLE=1 playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install chromium"
