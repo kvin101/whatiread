@@ -2,11 +2,6 @@
 set -e
 
 avatar_dir="${WHATIREAD_AVATARS_DIRECTORY:-/data/avatars}"
-mkdir -p "$avatar_dir"
-
-if [ "$(id -u)" = "0" ]; then
-  chown -R whatiread:whatiread "$avatar_dir"
-  exec su-exec whatiread:whatiread java -jar app.jar "$@"
-fi
+mkdir -p "$avatar_dir" 2>/dev/null || true
 
 exec java -jar app.jar "$@"

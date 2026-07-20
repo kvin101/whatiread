@@ -13,6 +13,8 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
 
 env:
   JAVA_VERSION: "21"
@@ -200,6 +202,8 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
             ${{ env.DOCKERHUB_REPO_API }}:latest
             ${{ env.DOCKERHUB_REPO_API }}:${{ github.sha }}
@@ -219,6 +223,8 @@ jobs:
           build-args: VITE_API_URL=
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
             ${{ env.DOCKERHUB_REPO_WEB }}:latest
             ${{ env.DOCKERHUB_REPO_WEB }}:${{ github.sha }}
