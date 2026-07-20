@@ -1,22 +1,19 @@
 # WhatIRead Frontend
 
-React SPA for [WhatIRead](../README.md).
+React SPA. See the [root README](../README.md) for running the full stack.
 
 ## Stack
 
-- React 19 + TypeScript + Vite
-- TanStack Query
-- STOMP over SockJS for messaging
-- Tailwind CSS
+React 19, TypeScript, Vite, TanStack Query, STOMP/SockJS for chat, Tailwind.
 
-## Development
+## Dev
 
 ```bash
 npm install
 npm run dev
 ```
 
-Proxies `/api` and `/ws` to `http://localhost:8080`. Set `VITE_API_URL` in `frontend/.env` if the API is elsewhere.
+`/api` and `/ws` proxy to `http://localhost:8080`. Point elsewhere with `VITE_API_URL` in `frontend/.env`.
 
 ## Build
 
@@ -26,13 +23,13 @@ npm run build
 
 Production image: `frontend/Dockerfile` (nginx).
 
-## Browser E2E tests
+## E2E
 
-Playwright tests open Chromium and walk every app route against a running stack. Details: [e2e/README.md](./e2e/README.md).
+Playwright tests need the app running. See [e2e/README.md](./e2e/README.md).
 
 ```bash
 npm run test:e2e:install   # once
-npm run test:e2e           # headless
-npm run test:e2e:headed    # visible browser
-npm run test:e2e:ui        # interactive mode
+npm run test:e2e
+npm run test:e2e:headed
+npm run test:e2e:ui
 ```
