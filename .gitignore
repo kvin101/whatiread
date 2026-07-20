@@ -44,6 +44,8 @@ frontend/node_modules/
 frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
+frontend/playwright-results.json
+frontend/product-demo.mp4
 frontend/blob-report/
 
 # Cursor (local IDE/agent config)

@@ -5,6 +5,20 @@ Self-hosted reading tracker. Track books, organize shelves, connect with friends
 
 **License:** [AGPL-3.0](./LICENSE) + [NON-AI-LICENSE](./licenses/NON-AI-LICENSE) ([process](./licenses/README.md))
 
+## Product demo
+
+Full HD walkthrough (~2 min) of the main flows — sign-in, library, shelves, friends, messaging, and more. **Not stored in git** (large file); CI builds it from Playwright E2E on every `main` push.
+
+| Get the video | |
+|---------------|--|
+| **Latest release (MP4)** | [Download `product-demo.mp4`](https://github.com/kvin101/whatiread/releases/latest/download/product-demo.mp4) |
+| **All builds** | [GitHub Releases](https://github.com/kvin101/whatiread/releases) → assets on each tag |
+| **CI artifact** | [Actions](https://github.com/kvin101/whatiread/actions) → latest green run → **product-demo-video** |
+
+The demo stitches 12 chapter clips (welcome → tour → add book → library → author → shelves → explore → friends → messages → recommendations → profile → sign out). Per-test recordings and the HTML report are under **demo-videos** and **playwright-report** artifacts.
+
+**Do not commit** `product-demo.mp4` to the repo — GitHub rejects files over 100 MB and the video is regenerated automatically.
+
 - **Copyleft (AGPL-3.0):** Run, modify, or offer this software over a network → share corresponding source under AGPL-3.0.
 - **No AI/ML training:** [NON-AI-LICENSE](./licenses/NON-AI-LICENSE) (from [non-ai-licenses](https://github.com/non-ai-licenses/non-ai-licenses)) — copy the license **into your repo**; do not link from GitHub at runtime.
 - **Crawlers:** [robots.txt](./frontend/public/robots.txt) from [ai.robots.txt](https://github.com/ai-robots-txt/ai.robots.txt) + nginx hard block.
