@@ -7,6 +7,7 @@ build/
 !**/src/test/**/build/
 
 # Environment and local data
+.env
 .env.local
 __pycache__/
 *.pyc

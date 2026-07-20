@@ -21,9 +21,10 @@ cd frontend && npm install && npm run dev
 
 ## Run with Docker
 
-Edit `.env` (passwords, secrets), then:
+Edit `.env` (copy from `.env.example`, set passwords and secrets), then:
 
 ```bash
+cp .env.example .env   # first time only
 docker compose up --build -d
 ```
 
@@ -46,7 +47,7 @@ Services: Prometheus `:9090`, Jaeger `:16686`, Grafana `:3000`, Loki `:3100`, Do
 
 ## Configuration
 
-See `.env` for Docker variables. Key API settings:
+See `.env.example` for Docker variables. Key API settings:
 
 | Variable | Description |
 |----------|-------------|
