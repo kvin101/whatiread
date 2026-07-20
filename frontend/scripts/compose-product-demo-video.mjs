@@ -16,21 +16,32 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RESULTS_JSON = join(ROOT, 'playwright-results.json')
 const OUTPUT = join(ROOT, 'product-demo.webm')
 
-/** Exact Playwright test titles — one representative clip per chapter. */
+/** Playwright test titles — one representative clip per chapter. */
 const DEMO_STORY = [
   'Visitor opens Sign in, then hops to Create account',
   'Priya visits every section from the sidebar',
   'Priya searches Open Library from Add book and closes the modal',
   'Priya reviews notes, comments, rating, and status in the book drawer',
-  "Priya opens Arundhati Roy's author page from the drawer",
+  'Priya opens Arundhati Roy\u2019s author page from the drawer',
   'Priya manages Monsoon Reading List — tabs, edit, add books, members',
   'Priya browses public shelves and tries clone',
   'Priya searches friends, messages Arjun, and checks sent requests',
   'Priya starts a chat with Arjun and sends a note about The White Tiger',
-  "Priya accepts Arjun's recommendation of The White Tiger",
+  'Priya accepts Arjun\u2019s recommendation of The White Tiger',
   'Priya updates her writer bio on the account page',
   'Priya signs out and returns to the login page',
 ]
+
+/** Match titles from spec/JSON despite curly quotes, em dashes, ellipsis. */
+function normalizeTitle(title) {
+  return title
+    .normalize('NFKC')
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+    .replace(/\u2014/g, '—')
+    .replace(/\u2026/g, '...')
+    .trim()
+}
 
 function collectTests(node, out = []) {
   if (!node || typeof node !== 'object') return out
@@ -66,16 +77,19 @@ async function resolveClipPaths() {
   const indexed = new Map()
   for (const { title, test } of collectTests(report)) {
     const video = videoPathForTest(test)
-    if (video) indexed.set(title, video)
+    if (video) indexed.set(normalizeTitle(title), video)
   }
 
   const clipPaths = []
   console.log('Composing product demo from chapter clips:')
   for (let i = 0; i < DEMO_STORY.length; i++) {
     const title = DEMO_STORY[i]
-    const relative = indexed.get(title)
+    const relative = indexed.get(normalizeTitle(title))
     if (!relative) {
-      throw new Error(`No video found for test: "${title}"`)
+      const available = [...indexed.keys()].map((t) => `  - ${t}`).join('\n')
+      throw new Error(
+        `No video found for test: "${title}"\nAvailable tests:\n${available}`,
+      )
     }
     const absolute = isAbsolute(relative) ? relative : join(ROOT, relative)
     await access(absolute, constants.R_OK)
