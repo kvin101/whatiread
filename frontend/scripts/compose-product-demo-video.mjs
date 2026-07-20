@@ -15,8 +15,9 @@ import { spawnSync } from 'node:child_process'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RESULTS_JSON = join(ROOT, 'playwright-results.json')
-const OUTPUT = join(ROOT, 'product-demo.webm')
-const TARGET = { width: 1512, height: 982, fps: 30 }
+const OUTPUT = join(ROOT, 'product-demo.mp4')
+/** Full HD — matches Playwright demo viewport (1920×1080). */
+const TARGET = { width: 1920, height: 1080 }
 
 /** Playwright test titles — one representative clip per chapter. */
 const DEMO_STORY = [
@@ -110,24 +111,35 @@ async function resolveClipPaths() {
   return clipPaths
 }
 
-/** Normalize each clip, then concat — Playwright webm files vary too much for stream copy. */
+const SCALE_FILTER = [
+  `scale=${TARGET.width}:${TARGET.height}:flags=lanczos:force_original_aspect_ratio=decrease`,
+  `pad=${TARGET.width}:${TARGET.height}:(ow-iw)/2:(oh-ih)/2:black`,
+  'setsar=1',
+  'format=yuv420p',
+].join(',')
+
+/** Normalize each clip to Full HD H.264 — preserve source timing (no fps forcing). */
 async function normalizeClips(clipPaths, workDir) {
   const normalized = []
   for (let i = 0; i < clipPaths.length; i++) {
-    const out = join(workDir, `clip-${String(i + 1).padStart(2, '0')}.webm`)
+    const out = join(workDir, `clip-${String(i + 1).padStart(2, '0')}.mp4`)
     run('ffmpeg', [
       '-y',
       '-i',
       clipPaths[i],
       '-an',
       '-vf',
-      `scale=${TARGET.width}:${TARGET.height}:force_original_aspect_ratio=decrease,pad=${TARGET.width}:${TARGET.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${TARGET.fps},format=yuv420p`,
+      SCALE_FILTER,
       '-c:v',
-      'libvpx-vp9',
+      'libx264',
+      '-preset',
+      'slow',
       '-crf',
-      '32',
-      '-b:v',
-      '0',
+      '18',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
       out,
     ])
     normalized.push(out)
@@ -151,6 +163,8 @@ function mergeClips(listFile) {
     listFile,
     '-c',
     'copy',
+    '-movflags',
+    '+faststart',
     OUTPUT,
   ])
 }
@@ -160,12 +174,12 @@ async function main() {
   const workDir = await mkdtemp(join(tmpdir(), 'whatiread-demo-'))
   const listFile = join(workDir, 'concat.txt')
   try {
-    console.log('\nNormalizing clip format…')
+    console.log('\nNormalizing clips to 1920×1080…')
     const normalized = await normalizeClips(clipPaths, workDir)
     await concatNormalized(normalized, listFile)
     console.log('Merging chapters…')
     mergeClips(listFile)
-    console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters)`)
+    console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters, Full HD H.264)`)
   } finally {
     await rm(workDir, { recursive: true, force: true })
   }

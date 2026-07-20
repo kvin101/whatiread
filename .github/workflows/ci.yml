@@ -284,7 +284,7 @@ jobs:
         if: success()
         with:
           name: product-demo-video
-          path: frontend/product-demo.webm
+          path: frontend/product-demo.mp4
           retention-days: 90
           if-no-files-found: error
 
@@ -389,5 +389,5 @@ jobs:
             trivy-web.json
             trivy-api.sarif
             trivy-web.sarif
-            product-demo.webm
+            product-demo.mp4
 

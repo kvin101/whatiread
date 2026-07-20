@@ -3,19 +3,26 @@ import type { Page } from '@playwright/test'
 /** Headed / visible mode — slower pacing so you can follow each step. */
 export const isVisibleMode = process.env.E2E_VISIBLE === '1'
 
+/** CI / demo artifact recordings — slower than headless smoke, faster than headed. */
+export const isDemoRecording =
+  process.env.RECORD_DEMO_VIDEOS === '1' || process.env.CI === 'true'
+
 /** Pause after each test step / assertion block (ms). */
 export const stepPauseMs = Number(
-  process.env.E2E_STEP_PAUSE_MS ?? (isVisibleMode ? 3_000 : 400),
+  process.env.E2E_STEP_PAUSE_MS ??
+    (isVisibleMode ? 3_000 : isDemoRecording ? 1_500 : 400),
 )
 
 /** Playwright slowMo — delays every Playwright action (click, type, navigate). */
 export const slowMoMs = Number(
-  process.env.E2E_SLOW_MO_MS ?? (isVisibleMode ? 400 : 0),
+  process.env.E2E_SLOW_MO_MS ??
+    (isVisibleMode ? 400 : isDemoRecording ? 250 : 0),
 )
 
 /** Pause before and after each deliberate click (ms). */
 export const actionPauseMs = Number(
-  process.env.E2E_ACTION_PAUSE_MS ?? (isVisibleMode ? 800 : 0),
+  process.env.E2E_ACTION_PAUSE_MS ??
+    (isVisibleMode ? 800 : isDemoRecording ? 600 : 0),
 )
 
 /** Per-character delay when typing in visible mode (ms). */
