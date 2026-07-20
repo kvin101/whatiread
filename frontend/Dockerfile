@@ -12,10 +12,10 @@ RUN apk add --no-cache wget \
     && apk upgrade --no-cache \
     && sed -i '/user  nginx;/d' /etc/nginx/nginx.conf \
     && sed -i 's|pid        /var/run/nginx.pid;|pid /tmp/nginx/nginx.pid;|' /etc/nginx/nginx.conf \
-    && mkdir -p /var/cache/nginx /var/log/nginx /tmp/nginx \
+    && mkdir -p /var/cache/nginx /var/log/nginx /tmp/nginx /etc/nginx/snippets \
     && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /tmp/nginx /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY nginx-block-ai-bots.conf /etc/nginx/conf.d/block-ai-bots.conf
+COPY nginx-block-ai-bots.conf /etc/nginx/snippets/block-ai-bots.conf
 COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
