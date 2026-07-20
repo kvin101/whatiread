@@ -1,4 +1,4 @@
-# WhatIRead stack. Copy .env.example to .env, then: docker compose up --build -d
+# WhatIRead stack. Configure via .env (example placeholders), then: docker compose up --build -d
 
 services:
   db:

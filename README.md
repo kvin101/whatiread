@@ -21,10 +21,9 @@ cd frontend && npm install && npm run dev
 
 ## Run with Docker
 
-Edit `.env` (copy from `.env.example`, set passwords and secrets), then:
+Edit `.env` (example placeholders — set real passwords and secrets), then:
 
 ```bash
-cp .env.example .env   # first time only
 docker compose up --build -d
 ```
 
