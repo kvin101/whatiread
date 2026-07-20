@@ -81,7 +81,7 @@ jobs:
     name: Build, scan, E2E, and publish
     runs-on: ubuntu-latest
     needs: [backend, frontend]
-    environment: whairead
+    environment: whatiread
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
