@@ -6,15 +6,17 @@
  * welcome → tour → add book → library → author → shelves → explore → friends →
  * messages → recommendations → profile → sign out.
  */
-import { readFile, writeFile, access } from 'node:fs/promises'
+import { readFile, writeFile, access, mkdtemp, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join, dirname, isAbsolute } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RESULTS_JSON = join(ROOT, 'playwright-results.json')
 const OUTPUT = join(ROOT, 'product-demo.webm')
+const TARGET = { width: 1512, height: 982, fps: 30 }
 
 /** Playwright test titles — one representative clip per chapter. */
 const DEMO_STORY = [
@@ -71,6 +73,15 @@ function videoPathForTest(test) {
   return null
 }
 
+function run(cmd, args) {
+  const result = spawnSync(cmd, args, { encoding: 'utf8' })
+  if (result.status !== 0) {
+    const detail = [result.stderr, result.stdout].filter(Boolean).join('\n').trim()
+    throw new Error(`${cmd} failed${detail ? `:\n${detail}` : ''}`)
+  }
+  return result
+}
+
 async function resolveClipPaths() {
   await access(RESULTS_JSON, constants.R_OK)
   const report = JSON.parse(await readFile(RESULTS_JSON, 'utf8'))
@@ -99,40 +110,65 @@ async function resolveClipPaths() {
   return clipPaths
 }
 
-function runFfmpeg(listFile) {
-  const result = spawnSync(
-    'ffmpeg',
-    [
+/** Normalize each clip, then concat — Playwright webm files vary too much for stream copy. */
+async function normalizeClips(clipPaths, workDir) {
+  const normalized = []
+  for (let i = 0; i < clipPaths.length; i++) {
+    const out = join(workDir, `clip-${String(i + 1).padStart(2, '0')}.webm`)
+    run('ffmpeg', [
       '-y',
-      '-f',
-      'concat',
-      '-safe',
-      '0',
       '-i',
-      listFile,
+      clipPaths[i],
+      '-an',
+      '-vf',
+      `scale=${TARGET.width}:${TARGET.height}:force_original_aspect_ratio=decrease,pad=${TARGET.width}:${TARGET.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${TARGET.fps},format=yuv420p`,
       '-c:v',
       'libvpx-vp9',
       '-crf',
       '32',
       '-b:v',
       '0',
-      '-an',
-      OUTPUT,
-    ],
-    { stdio: 'inherit' },
-  )
-  if (result.status !== 0) {
-    throw new Error('ffmpeg failed to compose product-demo.webm')
+      out,
+    ])
+    normalized.push(out)
   }
+  return normalized
+}
+
+function concatNormalized(normalized, listFile) {
+  const listBody = normalized.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n')
+  return writeFile(listFile, listBody, 'utf8')
+}
+
+function mergeClips(listFile) {
+  run('ffmpeg', [
+    '-y',
+    '-f',
+    'concat',
+    '-safe',
+    '0',
+    '-i',
+    listFile,
+    '-c',
+    'copy',
+    OUTPUT,
+  ])
 }
 
 async function main() {
   const clipPaths = await resolveClipPaths()
-  const listFile = join(ROOT, '.product-demo-concat.txt')
-  const listBody = clipPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n')
-  await writeFile(listFile, listBody, 'utf8')
-  runFfmpeg(listFile)
-  console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters)`)
+  const workDir = await mkdtemp(join(tmpdir(), 'whatiread-demo-'))
+  const listFile = join(workDir, 'concat.txt')
+  try {
+    console.log('\nNormalizing clip format…')
+    const normalized = await normalizeClips(clipPaths, workDir)
+    await concatNormalized(normalized, listFile)
+    console.log('Merging chapters…')
+    mergeClips(listFile)
+    console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters)`)
+  } finally {
+    await rm(workDir, { recursive: true, force: true })
+  }
 }
 
 main().catch((err) => {

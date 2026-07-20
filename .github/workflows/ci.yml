@@ -256,7 +256,10 @@ jobs:
       - name: Compose README product demo video
         if: success()
         working-directory: frontend
-        run: npm run compose-demo-video
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          npm run compose-demo-video
 
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
