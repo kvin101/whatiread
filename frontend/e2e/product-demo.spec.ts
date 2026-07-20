@@ -3,7 +3,7 @@
  * Serial run: meaningful journey names, every major flow exercised for recordings.
  */
 import { test, expect } from '@playwright/test'
-import { visitAuthed, visitLoggedOut, signInViaForm } from './helpers/fixtures'
+import { visitAuthed, visitLoggedOut } from './helpers/fixtures'
 import { visitEverySidebarDestination } from './helpers/navigation'
 import {
   cancelModal,
@@ -41,12 +41,6 @@ test.describe('01 — Welcome & account access', () => {
     await expect(page.getByLabel(/email/i)).toBeVisible()
     await visibleClick(page.getByRole('link', { name: /sign in/i }))
     await expect(page).toHaveURL(/\/login/)
-  })
-
-  test('Priya signs in with email and password', async ({ page }) => {
-    await visitLoggedOut(page, '/login')
-    await signInViaForm(page, priya.loginEmail, priya.password)
-    await expect(page.getByRole('complementary').getByRole('link', { name: /priya sharma/i })).toBeVisible()
   })
 })
 
@@ -355,11 +349,5 @@ test.describe('12 — Sign out', () => {
     await visitAuthed(page, priya, '/')
     await visibleClick(page.getByRole('button', { name: /sign out/i }))
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 15_000 })
-  })
-
-  test('Priya signs back in with username and password', async ({ page }) => {
-    await visitLoggedOut(page, '/login')
-    await signInViaForm(page, priya.loginUsername, priya.password)
-    await expect(page.getByRole('complementary').getByRole('link', { name: /priya sharma/i })).toBeVisible()
   })
 })

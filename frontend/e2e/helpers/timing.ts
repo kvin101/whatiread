@@ -3,12 +3,6 @@ import type { Page } from '@playwright/test'
 /** Headed / visible mode — slower pacing so you can follow each step. */
 export const isVisibleMode = process.env.E2E_VISIBLE === '1'
 
-/** CI demo recordings — animate typing/clicks without headed slowMo. */
-export const recordDemoVideos = process.env.RECORD_DEMO_VIDEOS === '1'
-
-/** Character-by-character typing and action pauses for recordings. */
-export const animateInteractions = isVisibleMode || recordDemoVideos
-
 /** Pause after each test step / assertion block (ms). */
 export const stepPauseMs = Number(
   process.env.E2E_STEP_PAUSE_MS ?? (isVisibleMode ? 3_000 : 400),
@@ -21,14 +15,12 @@ export const slowMoMs = Number(
 
 /** Pause before and after each deliberate click (ms). */
 export const actionPauseMs = Number(
-  process.env.E2E_ACTION_PAUSE_MS ??
-    (isVisibleMode ? 800 : recordDemoVideos ? 350 : 0),
+  process.env.E2E_ACTION_PAUSE_MS ?? (isVisibleMode ? 800 : 0),
 )
 
 /** Per-character delay when typing in visible mode (ms). */
 export const typingDelayMs = Number(
-  process.env.E2E_TYPING_DELAY_MS ??
-    (isVisibleMode ? 100 : recordDemoVideos ? 60 : 0),
+  process.env.E2E_TYPING_DELAY_MS ?? (isVisibleMode ? 100 : 0),
 )
 
 /** Mouse-down duration on click in visible mode (ms). */
