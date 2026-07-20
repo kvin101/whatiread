@@ -16,6 +16,9 @@ export type SeedContext = {
   userId: string
   userDisplayName: string
   userFirstName: string
+  loginEmail: string
+  loginUsername: string
+  password: string
   bookId: string
   bookTitle: string
   authorName: string
@@ -167,6 +170,9 @@ export async function seedTestUser(): Promise<SeedContext> {
     userId,
     userDisplayName: PRIYA.displayName,
     userFirstName: PRIYA.firstName,
+    loginEmail: PRIYA.email(ts),
+    loginUsername: PRIYA.username(ts),
+    password: TEST_PASSWORD,
     bookId,
     bookTitle: PRIYA_BOOK.title,
     authorName: PRIYA_BOOK.author,

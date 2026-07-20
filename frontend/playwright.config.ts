@@ -5,6 +5,9 @@ import { isVisibleMode, slowMoMs } from './e2e/helpers/timing'
 const baseURL =
   process.env.BASE_URL ?? process.env.SMOKE_BASE_URL ?? 'http://localhost'
 
+/** CI demo recordings — keep every test video for product-demo artifacts. */
+const recordDemoVideos = process.env.RECORD_DEMO_VIDEOS === '1'
+
 /** Headed: match your physical screen. Headless: fixed viewport for CI stability. */
 const viewport = isVisibleMode ? resolveScreenSize() : HEADLESS_VIEWPORT
 
@@ -22,7 +25,8 @@ export default defineConfig({
     viewport,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: isVisibleMode ? 'on' : 'retain-on-failure',
+    video:
+      isVisibleMode || recordDemoVideos ? 'on' : 'retain-on-failure',
     launchOptions: {
       slowMo: slowMoMs,
       args: [
