@@ -70,16 +70,10 @@ jobs:
   e2e:
     name: E2E (Playwright, headless)
     runs-on: ubuntu-latest
-    environment: whairead
+    needs: [backend, frontend]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Create Compose env
         run: |
@@ -102,15 +96,10 @@ jobs:
           EOF
 
       - name: Start stack
-        run: |
-          COMPOSE="-f docker-compose.yml -f docker-compose.ci.yml"
-          docker compose $COMPOSE up --build -d db meilisearch api
-          chmod +x scripts/ci/wait-for-api.sh
-          COMPOSE_FILES="$COMPOSE" ./scripts/ci/wait-for-api.sh 420
-          docker compose $COMPOSE up -d web
+        run: docker compose up --build -d db meilisearch api web
 
       - name: Wait for stack
-        run: chmod +x scripts/ci/wait-for-stack.sh && BASE_URL="${{ env.CI_BASE_URL }}" ./scripts/ci/wait-for-stack.sh 120
+        run: chmod +x scripts/ci/wait-for-stack.sh && BASE_URL="${{ env.CI_BASE_URL }}" ./scripts/ci/wait-for-stack.sh 180
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -134,15 +123,14 @@ jobs:
           BASE_URL: ${{ env.CI_BASE_URL }}
         run: npm run test:e2e
 
-      - name: Dump compose logs on failure
+      - name: Dump CI logs on failure
         if: failure()
         run: |
-          COMPOSE="-f docker-compose.yml -f docker-compose.ci.yml"
-          docker compose $COMPOSE ps
-          docker compose $COMPOSE logs db --tail 50
-          docker compose $COMPOSE logs meilisearch --tail 50
-          docker compose $COMPOSE logs api --tail 200
-          docker compose $COMPOSE logs web --tail 50
+          docker compose ps
+          docker compose logs db --tail 50
+          docker compose logs meilisearch --tail 50
+          docker compose logs api --tail 120
+          docker compose logs web --tail 50
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -164,7 +152,7 @@ jobs:
 
       - name: Stop stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+        run: docker compose down -v
 
   docker:
     name: Docker build, push, and CVE scan

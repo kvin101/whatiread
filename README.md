@@ -75,6 +75,7 @@ Tip: set `RATE_LIMIT_ENABLED=false` in `.env` for faster full smoke runs.
 
 ## Production notes
 
+- Set `SPRING_PROFILES_ACTIVE=prod` in `.env` for production deployments
 - Set strong secrets in `.env`
 - Put HTTPS in front of the web container
 - Set `MEILI_ENV=production` for Meilisearch

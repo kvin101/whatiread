@@ -62,4 +62,19 @@ class ObservabilityProfileEnvironmentPostProcessorTest {
         assertThat(environment.getActiveProfiles())
                 .doesNotContain(ObservabilityProfileEnvironmentPostProcessor.NO_OBSERVABILITY_PROFILE);
     }
+
+    @Test
+    void addsNoObservabilityProfileWhenDevProfileActive() {
+        var environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(
+                new MapPropertySource("test", Map.of(
+                        ObservabilityProfileEnvironmentPostProcessor.OBSERVABILITY_ENABLED, "true",
+                        ObservabilityProfileEnvironmentPostProcessor.SPRING_PROFILES_ACTIVE, "dev")));
+
+        new ObservabilityProfileEnvironmentPostProcessor()
+                .postProcessEnvironment(environment, new org.springframework.boot.SpringApplication());
+
+        assertThat(environment.getActiveProfiles())
+                .contains(ObservabilityProfileEnvironmentPostProcessor.NO_OBSERVABILITY_PROFILE);
+    }
 }

@@ -1,40 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-  <appender class="com.github.loki4j.logback.Loki4jAppender" name="LOKI">
-    <format>
-      <label>
-        <pattern>app=${springAppName},host=${HOSTNAME:-unknown}</pattern>
-      </label>
-      <message class="com.github.loki4j.logback.JsonLayout">
-        <mdc>
-          <include>correlationId</include>
-          <include>traceId</include>
-          <include>spanId</include>
-        </mdc>
-      </message>
-      <sortByTime>true</sortByTime>
-    </format>
-    <http>
-      <url>${lokiUrl}</url>
-    </http>
-  </appender>
-  <appender class="ch.qos.logback.classic.AsyncAppender" name="ASYNC_LOKI">
-    <appender-ref ref="LOKI"/>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <queueSize>512</queueSize>
-  </appender>
-
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
   <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
-  <springProfile name="no-observability">
-    <root level="INFO">
-      <appender-ref ref="CONSOLE"/>
-    </root>
-  </springProfile>
+  <springProperty defaultValue="whatiread" name="springAppName" scope="context"
+    source="spring.application.name"/>
 
   <springProfile name="!no-observability">
+    <springProperty defaultValue="http://localhost:3100/loki/api/v1/push" name="lokiUrl"
+      scope="context"
+      source="whatiread.loki.url"/>
+
+    <appender class="com.github.loki4j.logback.Loki4jAppender" name="LOKI">
+      <format>
+        <label>
+          <pattern>app=${springAppName},host=${HOSTNAME:-unknown}</pattern>
+        </label>
+        <message class="com.github.loki4j.logback.JsonLayout">
+          <mdc>
+            <include>correlationId</include>
+            <include>traceId</include>
+            <include>spanId</include>
+          </mdc>
+        </message>
+        <sortByTime>true</sortByTime>
+      </format>
+      <http>
+        <url>${lokiUrl}</url>
+      </http>
+    </appender>
+    <appender class="ch.qos.logback.classic.AsyncAppender" name="ASYNC_LOKI">
+      <appender-ref ref="LOKI"/>
+      <discardingThreshold>0</discardingThreshold>
+      <neverBlock>true</neverBlock>
+      <queueSize>512</queueSize>
+    </appender>
+
     <springProfile name="prod">
       <root level="INFO">
         <appender-ref ref="CONSOLE"/>
@@ -50,10 +51,9 @@
     </springProfile>
   </springProfile>
 
-  <springProperty defaultValue="whatiread" name="springAppName" scope="context"
-    source="spring.application.name"/>
-
-  <springProperty defaultValue="http://localhost:3100/loki/api/v1/push" name="lokiUrl"
-    scope="context"
-    source="whatiread.loki.url"/>
+  <springProfile name="no-observability">
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
 </configuration>

@@ -1,11 +1,9 @@
 spring:
   datasource:
-    # File-backed H2 so dev data survives restarts (stored under ./data/, gitignored).
-    # Do not use DATABASE_TO_LOWER here — it breaks Liquibase changelog table creation on H2.
-    url: jdbc:h2:file:./data/whatiread-dev;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    # Non-Docker dev uses file-backed H2; Docker Compose overrides via DATABASE_URL.
+    url: ${DATABASE_URL:jdbc:h2:file:./data/whatiread-dev;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
   h2:
     console:
       enabled: true
@@ -14,11 +12,16 @@ spring:
 whatiread:
   security:
     jwt:
-      secret: dev-only-change-me-use-at-least-32-characters
+      secret: ${JWT_SECRET:dev-only-change-me-use-at-least-32-characters}
+  registration:
+    enabled: ${REGISTRATION_ENABLED:true}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:false}
   meilisearch:
-    enabled: true
-    host: http://localhost:7700
-    load-seed-on-startup: true
+    enabled: ${MEILISEARCH_ENABLED:true}
+    host: ${MEILISEARCH_HOST:http://localhost:7700}
+    load-seed-on-startup: ${MEILISEARCH_LOAD_SEED_ON_STARTUP:true}
+    load-users-on-startup: ${MEILISEARCH_LOAD_USERS_ON_STARTUP:true}
 
 logging:
   level:
