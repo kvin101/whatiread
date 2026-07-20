@@ -16,8 +16,11 @@ import { spawnSync } from 'node:child_process'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RESULTS_JSON = join(ROOT, 'playwright-results.json')
 const OUTPUT = join(ROOT, 'product-demo.mp4')
-/** Full HD — matches Playwright demo viewport (1920×1080). */
-const TARGET = { width: 1920, height: 1080 }
+
+/** Delivery size for README / MacBook playback. */
+const OUTPUT_SIZE = { width: 1920, height: 1080 }
+/** Target bitrate — Playwright VP8 screencasts are soft; export must be high. */
+const OUTPUT_BITRATE = '10M'
 
 /** Playwright test titles — one representative clip per chapter. */
 const DEMO_STORY = [
@@ -111,14 +114,7 @@ async function resolveClipPaths() {
   return clipPaths
 }
 
-const SCALE_FILTER = [
-  `scale=${TARGET.width}:${TARGET.height}:flags=lanczos:force_original_aspect_ratio=decrease`,
-  `pad=${TARGET.width}:${TARGET.height}:(ow-iw)/2:(oh-ih)/2:black`,
-  'setsar=1',
-  'format=yuv420p',
-].join(',')
-
-/** Normalize each clip to Full HD H.264 — preserve source timing (no fps forcing). */
+/** Near-lossless intermediate — avoid smearing before final 1080p export. */
 async function normalizeClips(clipPaths, workDir) {
   const normalized = []
   for (let i = 0; i < clipPaths.length; i++) {
@@ -128,16 +124,14 @@ async function normalizeClips(clipPaths, workDir) {
       '-i',
       clipPaths[i],
       '-an',
-      '-vf',
-      SCALE_FILTER,
+      '-pix_fmt',
+      'yuv420p',
       '-c:v',
       'libx264',
       '-preset',
-      'slow',
+      'veryslow',
       '-crf',
-      '18',
-      '-pix_fmt',
-      'yuv420p',
+      '4',
       '-movflags',
       '+faststart',
       out,
@@ -152,7 +146,16 @@ function concatNormalized(normalized, listFile) {
   return writeFile(listFile, listBody, 'utf8')
 }
 
-function mergeClips(listFile) {
+/** Downscale 2K capture → Full HD with high bitrate for Retina displays. */
+function exportFinal(listFile) {
+  const downscale = [
+    `scale=${OUTPUT_SIZE.width}:${OUTPUT_SIZE.height}:flags=lanczos:force_original_aspect_ratio=decrease`,
+    `pad=${OUTPUT_SIZE.width}:${OUTPUT_SIZE.height}:(ow-iw)/2:(oh-ih)/2:black`,
+    'setsar=1',
+    'unsharp=3:3:0.35',
+    'format=yuv420p',
+  ].join(',')
+
   run('ffmpeg', [
     '-y',
     '-f',
@@ -161,8 +164,22 @@ function mergeClips(listFile) {
     '0',
     '-i',
     listFile,
-    '-c',
-    'copy',
+    '-vf',
+    downscale,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryslow',
+    '-profile:v',
+    'high',
+    '-b:v',
+    OUTPUT_BITRATE,
+    '-maxrate',
+    '12M',
+    '-bufsize',
+    '24M',
+    '-pix_fmt',
+    'yuv420p',
     '-movflags',
     '+faststart',
     OUTPUT,
@@ -174,12 +191,12 @@ async function main() {
   const workDir = await mkdtemp(join(tmpdir(), 'whatiread-demo-'))
   const listFile = join(workDir, 'concat.txt')
   try {
-    console.log('\nNormalizing clips to 1920×1080…')
+    console.log('\nDecoding chapter clips (near-lossless)…')
     const normalized = await normalizeClips(clipPaths, workDir)
     await concatNormalized(normalized, listFile)
-    console.log('Merging chapters…')
-    mergeClips(listFile)
-    console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters, Full HD H.264)`)
+    console.log(`Exporting ${OUTPUT_SIZE.width}×${OUTPUT_SIZE.height} @ ${OUTPUT_BITRATE}…`)
+    exportFinal(listFile)
+    console.log(`\nWrote ${OUTPUT} (${clipPaths.length} chapters)`)
   } finally {
     await rm(workDir, { recursive: true, force: true })
   }

@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test'
-import { HEADLESS_VIEWPORT, resolveScreenSize } from './e2e/helpers/screen'
+import { DEMO_RECORD_VIEWPORT, HEADLESS_VIEWPORT, resolveScreenSize } from './e2e/helpers/screen'
 import { isVisibleMode, slowMoMs } from './e2e/helpers/timing'
 
 const baseURL =
@@ -11,8 +11,12 @@ const recordVideos =
   process.env.RECORD_DEMO_VIDEOS === '1' ||
   isVisibleMode
 
-/** Headed: match your physical screen. Headless: fixed viewport for CI stability. */
-const viewport = isVisibleMode ? resolveScreenSize() : HEADLESS_VIEWPORT
+/** 2K for demo capture; Full HD for quick headless checks. */
+const viewport = isVisibleMode
+  ? resolveScreenSize()
+  : recordVideos
+    ? DEMO_RECORD_VIEWPORT
+    : HEADLESS_VIEWPORT
 
 export default defineConfig({
   testDir: './e2e',
@@ -35,12 +39,16 @@ export default defineConfig({
     viewport,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: recordVideos ? 'on' : 'retain-on-failure',
+    video: recordVideos
+      ? { mode: 'on', size: DEMO_RECORD_VIEWPORT }
+      : 'retain-on-failure',
     launchOptions: {
       slowMo: slowMoMs,
       args: [
         `--window-size=${viewport.width},${viewport.height}`,
         '--window-position=0,0',
+        '--force-device-scale-factor=1',
+        '--font-render-hinting=medium',
       ],
     },
   },

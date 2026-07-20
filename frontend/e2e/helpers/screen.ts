@@ -1,7 +1,10 @@
 import { execSync } from 'node:child_process'
 
-/** Headless CI viewport — Full HD for demo recordings and stable E2E layout. */
+/** Headless CI viewport — Full HD for stable E2E layout. */
 export const HEADLESS_VIEWPORT = { width: 1920, height: 1080 }
+
+/** 2K capture for demo videos — downscaled to 1080p export for sharper text on Retina. */
+export const DEMO_RECORD_VIEWPORT = { width: 2560, height: 1440 }
 
 /** Detect primary display size for headed runs (macOS Finder bounds, env override, fallback). */
 export function resolveScreenSize(): { width: number; height: number } {
