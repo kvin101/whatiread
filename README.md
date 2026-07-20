@@ -13,9 +13,7 @@ Self-hosted reading tracker. Track books, organize shelves, connect with friends
 
 Walkthrough of sign-in, library, shelves, friends, messaging, and more (~2 min). Twelve chapters stitched from Playwright E2E on CI.
 
-<video controls width="100%" src="assets/product-demo.mp4" type="video/mp4">
-  <a href="assets/product-demo.mp4">Watch product demo (MP4)</a>
-</video>
+![WhatIRead product demo](assets/product-demo.mp4)
 
 Full-quality 1080p from the latest CI build: [Releases → `product-demo.mp4`](https://github.com/kvin101/whatiread/releases/latest/download/product-demo.mp4).
 
