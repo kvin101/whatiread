@@ -15,9 +15,8 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  // Serial suites retry from test 1 — disable for demo recordings (2× runtime + duplicate videos).
-  retries:
-    process.env.RECORD_DEMO_VIDEOS === '1' ? 0 : process.env.CI ? 1 : 0,
+  // Serial suites retry the whole file from test 1 — never use retries here.
+  retries: 0,
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   timeout: isVisibleMode ? 600_000 : 240_000,

@@ -351,10 +351,14 @@ test.describe('11 — Notifications & settings', () => {
 })
 
 test.describe('12 — Sign out', () => {
-  test('Priya signs out, then signs back in with username and password', async ({ page }) => {
+  test('Priya signs out and returns to the login page', async ({ page }) => {
     await visitAuthed(page, priya, '/')
     await visibleClick(page.getByRole('button', { name: /sign out/i }))
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('Priya signs back in with username and password', async ({ page }) => {
+    await visitLoggedOut(page, '/login')
     await signInViaForm(page, priya.loginUsername, priya.password)
     await expect(page.getByRole('complementary').getByRole('link', { name: /priya sharma/i })).toBeVisible()
   })
