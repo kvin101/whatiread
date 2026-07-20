@@ -46,7 +46,7 @@ Services: Prometheus `:9090`, Jaeger `:16686`, Grafana `:3000`, Loki `:3100`, Do
 
 ## Configuration
 
-See `.env.example` for Docker variables. Key API settings:
+See `.env` for Docker variables. Key API settings:
 
 | Variable | Description |
 |----------|-------------|
