@@ -253,6 +253,11 @@ jobs:
           RECORD_DEMO_VIDEOS: "1"
         run: npm run test:e2e
 
+      - name: Compose README product demo video
+        if: success()
+        working-directory: frontend
+        run: npm run compose-demo-video
+
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         if: always()
@@ -270,6 +275,15 @@ jobs:
           path: frontend/test-results/**/*.webm
           retention-days: 30
           if-no-files-found: ignore
+
+      - name: Upload product demo video
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: product-demo-video
+          path: frontend/product-demo.webm
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Push API image (with SBOM + provenance)
         if: env.PUSH_IMAGES == 'true'
@@ -340,6 +354,12 @@ jobs:
         with:
           name: cve-reports
 
+      - name: Download product demo video
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: product-demo-video
+
       - name: Prepare release notes
         run: |
           cat > release-body.md <<EOF
@@ -366,4 +386,5 @@ jobs:
             trivy-web.json
             trivy-api.sarif
             trivy-web.sarif
+            product-demo.webm
 

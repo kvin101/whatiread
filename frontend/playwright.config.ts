@@ -21,7 +21,13 @@ export default defineConfig({
   // Serial suites retry the whole file from test 1 — never use retries here.
   retries: 0,
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ...(process.env.CI === 'true'
+      ? ([['json', { outputFile: 'playwright-results.json' }]] as const)
+      : []),
+  ],
   timeout: isVisibleMode ? 600_000 : 240_000,
   expect: { timeout: isVisibleMode ? 30_000 : 15_000 },
   use: {
